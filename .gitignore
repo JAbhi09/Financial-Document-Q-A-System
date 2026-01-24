@@ -1,0 +1,136 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+virtualenv/
+.venv
+
+# Environment Variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.project
+.pydevproject
+.settings/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# ChromaDB / Vector Databases
+chroma_db/
+chroma_db_*/
+*.chroma
+*.chromadb
+
+# Data and Cache Files
+*.json
+!requirements.json
+*.csv
+*.xlsx
+*.xls
+data/
+cache/
+tmp/
+temp/
+*.log
+
+# SEC EDGAR Downloads
+edgar_cache/
+sec_filings/
+10k_filings/
+
+# Model Checkpoints and Weights
+*.pt
+*.pth
+*.h5
+*.pkl
+*.pickle
+*.model
+models/
+checkpoints/
+
+# NLTK Data (if downloaded locally)
+nltk_data/
+
+# Streamlit
+.streamlit/secrets.toml
+.streamlit/config.toml
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation Builds
+docs/_build/
+site/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# OS Files
+Thumbs.db
+Desktop.ini
+.Spotlight-V100
+.Trashes
+
+# Backup Files
+*.bak
+*.backup
+*.old
+*~
+
+# Large Project Directory (appears to be node_modules equivalent)
+intfinproject/
+
+# Debug and Test Files
+debug_*.py
+test_*.py
+repro_*.py
+reproduce_*.py
