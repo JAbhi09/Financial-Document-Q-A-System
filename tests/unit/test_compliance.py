@@ -637,6 +637,58 @@ class TestDiscrepancyDetection:
         types = [d['type'] for d in discrepancies]
         assert 'MAGNITUDE_MISMATCH' in types
 
+    # --- new filtering tests ---
+
+    @pytest.mark.unit
+    def test_table_artifact_sentences_are_skipped(self):
+        """Garbled table rows must never become claims."""
+        artifacts = [
+            "2025Change2024Ch_",               # merged column headers
+            "202520242023",                     # year run with no words
+            "7.0",                              # bare number
+            "Revenue 7.0",                      # too short / too few words
+        ]
+        for a in artifacts:
+            assert extract_claims_from_text(a) == [], f"Expected no claims for artifact: {a!r}"
+
+    @pytest.mark.unit
+    def test_bare_percentage_does_not_produce_dollar_value(self):
+        """'Gross margin was 36.8%' is a rate — claim value must be None."""
+        text = "Gross profit margin was 36.8%, down from 38.2% in the prior year."
+        claims = extract_claims_from_text(text)
+        gp_claims = [c for c in claims if c['metric'] == 'gross_profit']
+        assert gp_claims, "Expected a gross_profit claim to be extracted"
+        assert gp_claims[0]['value'] is None, (
+            f"Bare percentage must not be stored as a dollar value; got {gp_claims[0]['value']}"
+        )
+
+    @pytest.mark.unit
+    def test_dollar_billion_normalised_to_raw(self):
+        """'$391 billion' must be stored as 391_000_000_000, not 391."""
+        text = "Revenue increased to $391 billion driven by strong product sales."
+        claims = extract_claims_from_text(text)
+        rev = [c for c in claims if c['metric'] == 'revenue']
+        assert rev, "Expected a revenue claim"
+        assert rev[0]['value'] == 391_000_000_000, (
+            f"Expected 391000000000, got {rev[0]['value']}"
+        )
+
+    @pytest.mark.unit
+    def test_no_false_positive_billion_vs_xbrl(self):
+        """
+        The canonical false-positive: MD&A says '$391 billion', XBRL is 391_035_000_000.
+        After normalisation the values are within 0.1% — no MAGNITUDE_MISMATCH should fire.
+        """
+        text = "Revenue increased to $391 billion driven by strong product sales."
+        claims = extract_claims_from_text(text)
+        financials = {'revenue': {'value': 391_035_000_000, 'change': 10_000_000_000}}
+        discrepancies = detect_discrepancies(claims, financials)
+        magnitude_mismatches = [d for d in discrepancies if d['type'] == 'MAGNITUDE_MISMATCH']
+        assert magnitude_mismatches == [], (
+            f"False positive: {magnitude_mismatches[0]['description']}"
+            if magnitude_mismatches else ""
+        )
+
     @pytest.mark.unit
     def test_build_financials_from_raw(self):
         current = {'revenue': 1100, 'net_income': 200, 'cogs': 600, 'operating_cash_flow': 300}

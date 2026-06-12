@@ -1,5 +1,55 @@
 import re
 
+_UNIT_MULTIPLIERS = {
+    'trillion': 1_000_000_000_000,
+    'billion':  1_000_000_000,
+    'million':  1_000_000,
+    'thousand': 1_000,
+}
+
+
+def _is_table_artifact(sentence: str) -> bool:
+    """Return True for garbled table rows that should not be treated as narrative claims."""
+    s = sentence.strip()
+    # Too short to carry a real claim
+    if len(s) < 20:
+        return True
+    # Runs of 6+ consecutive digits signal merged year/number table headers (e.g. "202520242023")
+    if re.search(r'\d{6,}', s):
+        return True
+    # Fewer than 3 real words (alpha tokens ≥ 2 chars) → table fragment, not prose
+    if len(re.findall(r'[A-Za-z]{2,}', s)) < 3:
+        return True
+    return False
+
+
+def _extract_dollar_value(sentence: str):
+    """
+    Extract a normalized dollar amount (raw dollars) from a narrative sentence.
+
+    Recognized forms:
+        $391 billion   → 391_000_000_000
+        $1.5 trillion  → 1_500_000_000_000
+        394 million    → 394_000_000
+
+    Bare percentages ("36.8%") return None — they are rates, not dollar amounts.
+    """
+    m = re.search(
+        r'\$\s*([\d,]+\.?\d*)\s*(trillion|billion|million|thousand)?'
+        r'|([\d,]+\.?\d*)\s+(trillion|billion|million)',
+        sentence, re.I,
+    )
+    if not m:
+        return None
+    if m.group(1) is not None:
+        num_str = m.group(1)
+        unit = (m.group(2) or '').lower()
+    else:
+        num_str = m.group(3)
+        unit = m.group(4).lower()
+    num = float(num_str.replace(',', ''))
+    return num * _UNIT_MULTIPLIERS.get(unit, 1)
+
 
 def extract_claims_from_text(text: str) -> list:
     """
@@ -32,6 +82,9 @@ def extract_claims_from_text(text: str) -> list:
     sentences = re.split(r'(?<=[.!?])\s+', text[:60_000])
 
     for sentence in sentences:
+        if _is_table_artifact(sentence):
+            continue
+
         sl = sentence.lower()
         for metric, pat in metric_patterns.items():
             if metric in seen_metrics:
@@ -46,8 +99,8 @@ def extract_claims_from_text(text: str) -> list:
             else:
                 continue
 
-            pct_match = re.search(r'(\d+\.?\d*)\s*%', sentence)
-            value = float(pct_match.group(1)) if pct_match else None
+            # Only capture explicit dollar amounts; bare percentages are rates, not magnitudes.
+            value = _extract_dollar_value(sentence)
 
             claims.append({
                 'metric':    metric,
