@@ -690,6 +690,37 @@ class TestDiscrepancyDetection:
         )
 
     @pytest.mark.unit
+    def test_bare_dollar_without_unit_yields_no_value(self):
+        """$178,353 with no explicit unit (millions-table context) must not be extracted."""
+        text = "Net sales increased to $178,353 as shown in the following table (dollars in millions)."
+        claims = extract_claims_from_text(text)
+        rev = [c for c in claims if c['metric'] == 'revenue']
+        assert rev, "Expected a revenue claim to be extracted"
+        assert rev[0]['value'] is None, (
+            f"Bare $X without unit must not produce a dollar value; got {rev[0]['value']}"
+        )
+
+    @pytest.mark.unit
+    def test_gross_margin_percentage_not_matched_as_gross_profit(self):
+        """'Gross margin percentage decreased' talks about the rate — must not match gross_profit."""
+        text = "Products gross margin percentage decreased during 2025 compared to the prior year."
+        claims = extract_claims_from_text(text)
+        gp_claims = [c for c in claims if c['metric'] == 'gross_profit']
+        assert gp_claims == [], (
+            f"'gross margin percentage' must not match gross_profit; got {gp_claims}"
+        )
+
+    @pytest.mark.unit
+    def test_gross_profit_dollar_still_matches(self):
+        """'Gross profit increased to $181 billion' (dollar amount) must still match."""
+        text = "Gross profit increased to $181 billion driven by improved services mix."
+        claims = extract_claims_from_text(text)
+        gp_claims = [c for c in claims if c['metric'] == 'gross_profit']
+        assert gp_claims, "Expected a gross_profit claim for the dollar-amount sentence"
+        assert gp_claims[0]['direction'] == 'increase'
+        assert gp_claims[0]['value'] == 181_000_000_000
+
+    @pytest.mark.unit
     def test_build_financials_from_raw(self):
         current = {'revenue': 1100, 'net_income': 200, 'cogs': 600, 'operating_cash_flow': 300}
         prior   = {'revenue': 1000, 'net_income': 180, 'cogs': 550, 'operating_cash_flow': 280}

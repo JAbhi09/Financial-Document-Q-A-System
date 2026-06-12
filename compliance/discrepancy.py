@@ -35,7 +35,7 @@ def _extract_dollar_value(sentence: str):
     Bare percentages ("36.8%") return None — they are rates, not dollar amounts.
     """
     m = re.search(
-        r'\$\s*([\d,]+\.?\d*)\s*(trillion|billion|million|thousand)?'
+        r'\$\s*([\d,]+\.?\d*)\s*(trillion|billion|million|thousand)'
         r'|([\d,]+\.?\d*)\s+(trillion|billion|million)',
         sentence, re.I,
     )
@@ -64,7 +64,7 @@ def extract_claims_from_text(text: str) -> list:
     metric_patterns = {
         'revenue':          r'\b(revenue|revenues|net sales|total sales|net revenue)\b',
         'net_income':       r'\b(net income|net earnings|net loss|net profit)\b',
-        'gross_profit':     r'\b(gross profit|gross margin)\b',
+        'gross_profit':     r'\b(gross profit|gross margin)\b(?!\s*(percentage|percent|%|ratio))',
         'operating_income': r'\b(operating income|operating profit|operating loss|operating margin)\b',
         'cash':             r'\b(cash and cash equivalents|cash flow from operations|operating cash flow)\b',
     }
