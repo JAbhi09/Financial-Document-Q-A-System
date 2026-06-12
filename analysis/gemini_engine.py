@@ -3,11 +3,12 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from .prompts import (
-    FINANCIAL_QA_PROMPT, 
-    COMPARISON_PROMPT, 
+    FINANCIAL_QA_PROMPT,
+    COMPARISON_PROMPT,
     RISK_ANALYSIS_PROMPT,
     METRIC_EXTRACTION_PROMPT,
-    FINANCIAL_SUMMARY_PROMPT
+    FINANCIAL_SUMMARY_PROMPT,
+    COMPANY_COMPARISON_PROMPT,
 )
 
 class GeminiAnalysisEngine:
@@ -228,6 +229,37 @@ class GeminiAnalysisEngine:
             for i, doc in enumerate(docs)
         )
         messages = METRIC_EXTRACTION_PROMPT.format_messages(context=context, question=query)
+        for chunk in self.llm.stream(messages):
+            if chunk.content:
+                yield ("token", chunk.content)
+
+    def stream_compare_companies(self, ticker_a: str, vs_a, ticker_b: str, vs_b):
+        """
+        Stream a side-by-side comparison of two companies using their vector stores.
+
+        Yields:
+            ("token", str)  — one per text chunk from the LLM
+        """
+        query = (
+            f"Compare {ticker_a} and {ticker_b} across revenue growth, "
+            "profitability, risk factors, and strategic priorities"
+        )
+        docs_a = vs_a.similarity_search(query, k=4)
+        docs_b = vs_b.similarity_search(query, k=4)
+
+        context_a = "\n\n".join(
+            f"[{ticker_a} Source {i}] (Section: {d.metadata.get('section', 'N/A')})\n{d.page_content}"
+            for i, d in enumerate(docs_a)
+        )
+        context_b = "\n\n".join(
+            f"[{ticker_b} Source {i}] (Section: {d.metadata.get('section', 'N/A')})\n{d.page_content}"
+            for i, d in enumerate(docs_b)
+        )
+
+        messages = COMPANY_COMPARISON_PROMPT.format_messages(
+            ticker_a=ticker_a, context_a=context_a,
+            ticker_b=ticker_b, context_b=context_b,
+        )
         for chunk in self.llm.stream(messages):
             if chunk.content:
                 yield ("token", chunk.content)

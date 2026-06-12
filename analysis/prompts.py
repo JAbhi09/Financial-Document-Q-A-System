@@ -171,6 +171,40 @@ Summarize management's outlook and guidance.
 Use specific numbers and cite sections where information is found.
 """
 
+COMPANY_COMPARISON_PROMPT = ChatPromptTemplate.from_template("""
+You are a financial analyst comparing two public companies based on excerpts from their SEC 10-K filings.
+
+{ticker_a} FILING EXCERPTS:
+{context_a}
+
+{ticker_b} FILING EXCERPTS:
+{context_b}
+
+Compare these two companies across the following dimensions. Use specific numbers from the filings where available.
+
+## 1. REVENUE & GROWTH
+- Recent revenue figures and year-over-year growth rates for each company
+- Key revenue drivers and segment breakdown if available
+
+## 2. PROFITABILITY
+- Gross margin, operating margin, net margin for each company
+- Which company shows stronger profitability and why
+
+## 3. KEY RISK FACTORS
+- Top 2–3 risks highlighted by each company
+- Any shared risks or contrasting risk profiles
+
+## 4. STRATEGIC PRIORITIES
+- Main strategic initiatives and capital allocation focus for each company
+- Where each company is investing for growth
+
+## 5. SUMMARY VERDICT
+- Which company demonstrates stronger financial health based on the filings?
+- Key differentiators and competitive positioning
+
+Be concise, analytical, and cite figures directly from the excerpts.
+""")
+
 METRIC_EXTRACTION_PROMPT = ChatPromptTemplate.from_template("""
 You are extracting specific financial metrics from SEC filing text.
 

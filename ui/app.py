@@ -115,6 +115,9 @@
 import streamlit as st
 import os
 import sys
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -147,9 +150,15 @@ st.title("📊 Intelligent Financial Document Q&A & Compliance")
 
 # Sidebar
 st.sidebar.header("Configuration")
-api_key = st.sidebar.text_input("Google API Key", type="password", value=os.getenv("GOOGLE_API_KEY", ""))
+api_key = os.getenv("GOOGLE_API_KEY", "")
 if api_key:
-    os.environ["GOOGLE_API_KEY"] = api_key
+    st.sidebar.success("✓ API key loaded")
+else:
+    api_key = st.sidebar.text_input("Google API Key", type="password")
+    if api_key:
+        os.environ["GOOGLE_API_KEY"] = api_key
+    else:
+        st.sidebar.warning("⚠️ Enter your Google API key to continue")
 
 ticker = st.sidebar.text_input("Enter Ticker Symbol (e.g. AAPL)", "AAPL").upper()
 
@@ -374,26 +383,61 @@ if st.sidebar.button("🔍 Analyze Filing", use_container_width=True):
                 with st.expander("View error details"):
                     st.code(traceback.format_exc())
 
-# === TABS: Q&A + COMPARE YEARS ===
+# === TABS: Q&A + COMPARE YEARS + COMPARE COMPANIES ===
 st.divider()
 
+# Status bar — only shown when a single-company analysis has been run via sidebar
 if 'vector_store_path' in st.session_state:
     ticker_info = st.session_state.get('processed_ticker', 'Unknown')
     docs_count  = st.session_state.get('docs_count', 0)
-
-    col1, col2 = st.columns([3, 1])
-    with col1:
+    _sb1, _sb2 = st.columns([3, 1])
+    with _sb1:
         st.info(f"📄 Currently analyzing: **{ticker_info}** 10-K filing ({docs_count} chunks indexed)")
-    with col2:
+    with _sb2:
         if st.button("🔄 Clear Analysis", use_container_width=True):
             for key in ['vector_store_path', 'processed_ticker', 'docs_count', 'beneish_result']:
                 st.session_state.pop(key, None)
             st.rerun()
 
-    tab_qa, tab_compare = st.tabs(["💬 Document Q&A", "📅 Compare Years"])
+tab_qa, tab_compare, tab_compare_co = st.tabs(
+    ["💬 Document Q&A", "📅 Compare Years", "⚖️ Compare Companies"]
+)
 
-    # ── TAB 1: Q&A (streaming) ──────────────────────────────────────────────
-    with tab_qa:
+# ── TAB 1: Q&A (streaming) ──────────────────────────────────────────────
+with tab_qa:
+    if 'vector_store_path' not in st.session_state:
+        st.info("👆 Please analyze a filing first using the sidebar to enable Q&A.")
+        st.markdown("### 📈 Suggested Companies to Analyze:")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            st.markdown("""
+**Technology:**
+- **AAPL** - Apple Inc.
+- **MSFT** - Microsoft
+- **GOOGL** - Alphabet/Google
+- **META** - Meta/Facebook
+- **NVDA** - NVIDIA
+            """)
+        with col2:
+            st.markdown("""
+**Retail & Consumer:**
+- **WMT** - Walmart
+- **AMZN** - Amazon
+- **COST** - Costco
+- **TGT** - Target
+- **HD** - Home Depot
+            """)
+        with col3:
+            st.markdown("""
+**Financial & Other:**
+- **JPM** - JPMorgan Chase
+- **BAC** - Bank of America
+- **JNJ** - Johnson & Johnson
+- **PFE** - Pfizer
+- **XOM** - Exxon Mobil
+            """)
+        st.info("💡 **Note:** Some companies like Nike (NKE) use different fiscal years and may file 10-K/A instead of standard 10-K.")
+    else:
         query = st.text_input(
             "Ask a question about the filing:",
             placeholder="e.g., What was the total revenue in fiscal 2024?"
@@ -465,8 +509,11 @@ if 'vector_store_path' in st.session_state:
                     import traceback
                     st.code(traceback.format_exc())
 
-    # ── TAB 2: COMPARE YEARS ────────────────────────────────────────────────
-    with tab_compare:
+# ── TAB 2: COMPARE YEARS ────────────────────────────────────────────────
+with tab_compare:
+    if 'vector_store_path' not in st.session_state:
+        st.info("👆 Please analyze a filing first using the sidebar to enable year-over-year comparison.")
+    else:
         st.markdown(
             "Compare two consecutive 10-K filings to surface financial changes, "
             "new/removed risks, and strategic shifts."
@@ -504,7 +551,6 @@ if 'vector_store_path' in st.session_state:
 
             st.success(f"Comparing FY{year_current} vs FY{year_prior} for {ticker_to_compare}")
 
-            # Truncate to avoid excessive token usage (~80k chars ≈ ~20k tokens each)
             text_current_trimmed = text_current[:80_000]
             text_prior_trimmed   = text_prior[:80_000]
 
@@ -537,39 +583,236 @@ if 'vector_store_path' in st.session_state:
                     import traceback
                     st.code(traceback.format_exc())
 
-else:
-    st.info("👆 Please analyze a filing first using the sidebar to enable Q&A and comparison.")
+# ── TAB 3: COMPARE COMPANIES ────────────────────────────────────────────
+with tab_compare_co:
+    st.markdown(
+        "Analyze and compare two companies side-by-side using their latest SEC 10-K filings. "
+        "Companies are automatically processed if not already available — no sidebar step required."
+    )
 
-    st.markdown("### 📈 Suggested Companies to Analyze:")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.markdown("""
-**Technology:**
-- **AAPL** - Apple Inc.
-- **MSFT** - Microsoft
-- **GOOGL** - Alphabet/Google
-- **META** - Meta/Facebook
-- **NVDA** - NVIDIA
-        """)
-    with col2:
-        st.markdown("""
-**Retail & Consumer:**
-- **WMT** - Walmart
-- **AMZN** - Amazon
-- **COST** - Costco
-- **TGT** - Target
-- **HD** - Home Depot
-        """)
-    with col3:
-        st.markdown("""
-**Financial & Other:**
-- **JPM** - JPMorgan Chase
-- **BAC** - Bank of America
-- **JNJ** - Johnson & Johnson
-- **PFE** - Pfizer
-- **XOM** - Exxon Mobil
-        """)
-    st.info("💡 **Note:** Some companies like Nike (NKE) use different fiscal years and may file 10-K/A instead of standard 10-K.")
+    if not api_key:
+        st.warning("⚠️ Please enter your Google API Key in the sidebar before comparing companies.")
+    else:
+        inp_a, inp_b = st.columns(2)
+        with inp_a:
+            co_ticker_a = st.text_input("Company A ticker", "AAPL", key="co_ticker_a").upper().strip()
+        with inp_b:
+            co_ticker_b = st.text_input("Company B ticker", "MSFT", key="co_ticker_b").upper().strip()
+
+        _tickers_valid = co_ticker_a and co_ticker_b and co_ticker_a != co_ticker_b
+        if co_ticker_a == co_ticker_b and co_ticker_a:
+            st.warning("Please enter two different ticker symbols.")
+
+        if _tickers_valid and st.button("⚖️ Compare Companies", use_container_width=True, key="btn_compare_co"):
+            # ---- Process Company A if not cached ----
+            if f'vs_{co_ticker_a}' not in st.session_state:
+                with st.spinner(f"Processing 10-K for {co_ticker_a}..."):
+                    try:
+                        _docs_a = process_filing(co_ticker_a)
+                        if not _docs_a:
+                            st.error(f"No documents found for {co_ticker_a}. Check the ticker symbol.")
+                            st.stop()
+                        _vs_path_a = f"chroma_db_{co_ticker_a}"
+                        add_documents_to_store(_docs_a, persist_directory=_vs_path_a)
+                        st.session_state[f'vs_{co_ticker_a}']   = _vs_path_a
+                        st.session_state[f'text_{co_ticker_a}'] = " ".join(d.page_content for d in _docs_a)[:200_000]
+                        st.success(f"✓ {co_ticker_a} processed ({len(_docs_a)} chunks)")
+                    except Exception as _e:
+                        st.error(f"Error processing {co_ticker_a}: {_e}")
+                        st.stop()
+            else:
+                st.success(f"✓ {co_ticker_a} already cached")
+
+            # ---- Process Company B if not cached ----
+            if f'vs_{co_ticker_b}' not in st.session_state:
+                with st.spinner(f"Processing 10-K for {co_ticker_b}..."):
+                    try:
+                        _docs_b = process_filing(co_ticker_b)
+                        if not _docs_b:
+                            st.error(f"No documents found for {co_ticker_b}. Check the ticker symbol.")
+                            st.stop()
+                        _vs_path_b = f"chroma_db_{co_ticker_b}"
+                        add_documents_to_store(_docs_b, persist_directory=_vs_path_b)
+                        st.session_state[f'vs_{co_ticker_b}']   = _vs_path_b
+                        st.session_state[f'text_{co_ticker_b}'] = " ".join(d.page_content for d in _docs_b)[:200_000]
+                        st.success(f"✓ {co_ticker_b} processed ({len(_docs_b)} chunks)")
+                    except Exception as _e:
+                        st.error(f"Error processing {co_ticker_b}: {_e}")
+                        st.stop()
+            else:
+                st.success(f"✓ {co_ticker_b} already cached")
+
+            # ---- Beneish M-Score for both ----
+            for _t in [co_ticker_a, co_ticker_b]:
+                if f'beneish_{_t}' not in st.session_state:
+                    with st.spinner(f"Fetching Beneish M-Score for {_t}..."):
+                        try:
+                            st.session_state[f'beneish_{_t}'] = calculate_beneish_m_score_with_ticker(_t, current_year=2024)
+                        except Exception as _e:
+                            st.session_state[f'beneish_{_t}'] = {
+                                'data_source': 'error', 'm_score': None,
+                                'risk_level': 'UNKNOWN', 'error': str(_e),
+                            }
+
+            # ---- Linguistic analysis for both ----
+            for _t in [co_ticker_a, co_ticker_b]:
+                if f'ling_{_t}' not in st.session_state:
+                    with st.spinner(f"Analyzing linguistic indicators for {_t}..."):
+                        try:
+                            _full_text = st.session_state.get(f'text_{_t}', '')
+                            if not _full_text:
+                                _vs_tmp = get_vector_store(st.session_state[f'vs_{_t}'])
+                                _tmp_docs = _vs_tmp.similarity_search("revenue income operations", k=30)
+                                _full_text = " ".join(d.page_content for d in _tmp_docs)
+                            st.session_state[f'ling_{_t}'] = analyze_linguistic_fraud_indicators(_full_text[:100_000])
+                        except Exception as _e:
+                            st.session_state[f'ling_{_t}'] = {'metrics': {}, 'red_flags': [], 'error': str(_e)}
+
+            st.session_state['co_compare_pair'] = (co_ticker_a, co_ticker_b)
+
+        # ── Display results ──────────────────────────────────────────────
+        _pair = st.session_state.get('co_compare_pair')
+        if _pair and f'vs_{_pair[0]}' in st.session_state and f'vs_{_pair[1]}' in st.session_state:
+            _ta, _tb = _pair
+
+            st.divider()
+            st.subheader(f"📊 {_ta}  vs  {_tb} — Financial Metrics")
+
+            # ── M-Score side by side ─────────────────────────────────────
+            st.markdown("#### Beneish M-Score (Earnings Manipulation Risk)")
+
+            def _mscore_emoji(score):
+                if score is None:
+                    return "⚪"
+                return "🔴" if score > -1.78 else ("🟡" if score > -2.22 else "🟢")
+
+            _bres_a = st.session_state.get(f'beneish_{_ta}', {})
+            _bres_b = st.session_state.get(f'beneish_{_tb}', {})
+
+            mcol_a, mcol_b = st.columns(2)
+            for _col, _bres, _t in [(mcol_a, _bres_a, _ta), (mcol_b, _bres_b, _tb)]:
+                with _col:
+                    st.markdown(f"**{_t}**")
+                    _ms   = _bres.get('m_score')
+                    _rl   = _bres.get('risk_level', 'N/A')
+                    _dsrc = _bres.get('data_source', 'unknown')
+                    if _dsrc in ('unavailable', 'error'):
+                        st.warning(f"M-Score unavailable — {_bres.get('message', _bres.get('error', ''))}")
+                    else:
+                        st.metric(
+                            f"{_mscore_emoji(_ms)} M-Score",
+                            f"{_ms:.3f}" if _ms is not None else "N/A",
+                            delta=f"Risk: {_rl}",
+                        )
+                        _comps = _bres.get('components', {})
+                        if _comps:
+                            with st.expander("Key Components (DSRI · GMI · AQI · SGI)"):
+                                for _ck in ['dsri', 'gmi', 'aqi', 'sgi']:
+                                    if _ck in _comps:
+                                        st.write(f"**{_ck.upper()}**: {_comps[_ck]:.4f}")
+
+            # ── Linguistic indicators side by side ────────────────────────
+            st.markdown("#### 📝 Linguistic Fraud Indicators")
+            _lres_a = st.session_state.get(f'ling_{_ta}', {})
+            _lres_b = st.session_state.get(f'ling_{_tb}', {})
+
+            lcol_a, lcol_b = st.columns(2)
+            for _col, _lres, _t in [(lcol_a, _lres_a, _ta), (lcol_b, _lres_b, _tb)]:
+                with _col:
+                    st.markdown(f"**{_t}**")
+                    _met = _lres.get('metrics', {})
+                    _lm1, _lm2, _lm3 = st.columns(3)
+                    with _lm1:
+                        st.metric("Lexical Diversity", f"{_met.get('lexical_diversity', 0):.2%}")
+                    with _lm2:
+                        st.metric("Passive Voice", f"{_met.get('passive_voice_ratio', 0):.2%}")
+                    with _lm3:
+                        st.metric("Hedging", f"{_met.get('hedging_ratio', 0):.2%}")
+                    _flags = _lres.get('red_flags', [])
+                    if _flags:
+                        st.warning(f"⚠️ Red Flags ({len(_flags)}): {', '.join(_flags)}")
+                    else:
+                        st.success("✓ No linguistic red flags")
+
+            # ── Fraud risk summary table ──────────────────────────────────
+            st.divider()
+            st.subheader("📋 Fraud Risk Summary")
+
+            import pandas as pd
+
+            def _winner_label(val_a, val_b, t_a, t_b, lower_is_better=True):
+                if val_a is None or val_b is None:
+                    return "—"
+                if val_a == val_b:
+                    return "Tie"
+                better = t_a if (val_a < val_b) == lower_is_better else t_b
+                return f"{better} ✅"
+
+            _risk_rank = {'LOW': 0, 'MODERATE': 1, 'HIGH': 2, 'UNKNOWN': 3, 'N/A': 3}
+            _ma  = _bres_a.get('m_score')
+            _mb  = _bres_b.get('m_score')
+            _ra  = _bres_a.get('risk_level', 'N/A')
+            _rb  = _bres_b.get('risk_level', 'N/A')
+            _fla = len(_lres_a.get('red_flags', []))
+            _flb = len(_lres_b.get('red_flags', []))
+
+            _summary_rows = [
+                {
+                    "Metric":  "M-Score",
+                    _ta:       f"{_ma:.3f}" if _ma is not None else "N/A",
+                    _tb:       f"{_mb:.3f}" if _mb is not None else "N/A",
+                    "Better":  _winner_label(_ma, _mb, _ta, _tb, lower_is_better=True),
+                },
+                {
+                    "Metric":  "Manipulation Risk",
+                    _ta:       _ra,
+                    _tb:       _rb,
+                    "Better":  _winner_label(_risk_rank.get(_ra, 3), _risk_rank.get(_rb, 3), _ta, _tb, lower_is_better=True),
+                },
+                {
+                    "Metric":  "Linguistic Red Flags",
+                    _ta:       str(_fla),
+                    _tb:       str(_flb),
+                    "Better":  _winner_label(_fla, _flb, _ta, _tb, lower_is_better=True),
+                },
+            ]
+            st.table(pd.DataFrame(_summary_rows).set_index("Metric"))
+
+            # ── AI narrative comparison ───────────────────────────────────
+            st.divider()
+            st.subheader("🤖 AI Narrative Comparison")
+            st.caption(
+                "Retrieves relevant excerpts from both filings and asks Gemini to compare "
+                "revenue growth, profitability, risk factors, and strategic priorities."
+            )
+
+            _ai_cache_key = f'ai_compare_{_ta}_{_tb}'
+
+            if st.button("Generate AI Comparison", use_container_width=True, key="btn_ai_compare"):
+                try:
+                    _engine = GeminiAnalysisEngine()
+                    _vs_a   = get_vector_store(st.session_state[f'vs_{_ta}'])
+                    _vs_b   = get_vector_store(st.session_state[f'vs_{_tb}'])
+                    _raw    = _engine.stream_compare_companies(_ta, _vs_a, _tb, _vs_b)
+
+                    _accumulated: list = []
+
+                    def _ai_token_stream():
+                        for _type, _data in _raw:
+                            if _type == "token":
+                                _accumulated.append(_data)
+                                yield _data
+                        st.session_state[_ai_cache_key] = "".join(_accumulated)
+
+                    st.write_stream(_ai_token_stream())
+                except Exception as _e:
+                    st.error(f"AI comparison failed: {_e}")
+                    with st.expander("View error details"):
+                        import traceback
+                        st.code(traceback.format_exc())
+            elif _ai_cache_key in st.session_state:
+                st.markdown(st.session_state[_ai_cache_key])
+
 # Footer with stats
 st.divider()
 footer_col1, footer_col2 = st.columns([3, 1])
