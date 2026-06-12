@@ -62,8 +62,9 @@ chroma_db_*/
 *.chromadb
 
 # Data and Cache Files
-*.json
-!requirements.json
+# Ignore JSON data/cache dumps at root level only, not fixtures or configs in subdirectories
+/company_tickers.json
+/edgar_cache*.json
 *.csv
 *.xlsx
 *.xls
@@ -129,8 +130,8 @@ Desktop.ini
 # Large Project Directory (appears to be node_modules equivalent)
 intfinproject/
 
-# Debug and Test Files
-debug_*.py
-test_*.py
-repro_*.py
-reproduce_*.py
+# Debug and Test Files (root-level scratch scripts only, NOT tests/ subdirectory)
+/debug_*.py
+/test_*.py
+/repro_*.py
+/reproduce_*.py
