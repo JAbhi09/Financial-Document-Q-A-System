@@ -112,6 +112,7 @@
 
 
 
+import re
 import streamlit as st
 import os
 import sys
@@ -161,6 +162,12 @@ else:
         st.sidebar.warning("⚠️ Enter your Google API key to continue")
 
 ticker = st.sidebar.text_input("Enter Ticker Symbol (e.g. AAPL)", "AAPL").upper()
+
+def _clean_latex_artifacts(text: str) -> str:
+    text = re.sub(r'\*\*(\$[\d,\.]+)', r'\1', text)
+    text = re.sub(r'([\d,\.]+\s*(?:million|billion|trillion))\*\*', r'\1', text)
+    return text
+
 
 def is_metric_query(query: str) -> bool:
     """Detect metric-focused queries with better accuracy"""
@@ -796,22 +803,25 @@ with tab_compare_co:
                     _raw    = _engine.stream_compare_companies(_ta, _vs_a, _tb, _vs_b)
 
                     _accumulated: list = []
+                    _stream_placeholder = st.empty()
 
                     def _ai_token_stream():
                         for _type, _data in _raw:
                             if _type == "token":
                                 _accumulated.append(_data)
                                 yield _data
-                        st.session_state[_ai_cache_key] = "".join(_accumulated)
 
-                    st.write_stream(_ai_token_stream())
+                    _stream_placeholder.write_stream(_ai_token_stream())
+                    _clean_result = _clean_latex_artifacts("".join(_accumulated))
+                    st.session_state[_ai_cache_key] = _clean_result
+                    _stream_placeholder.markdown(_clean_result)
                 except Exception as _e:
                     st.error(f"AI comparison failed: {_e}")
                     with st.expander("View error details"):
                         import traceback
                         st.code(traceback.format_exc())
             elif _ai_cache_key in st.session_state:
-                st.markdown(st.session_state[_ai_cache_key])
+                st.markdown(_clean_latex_artifacts(st.session_state[_ai_cache_key]))
 
 # Footer with stats
 st.divider()

@@ -183,6 +183,14 @@ You are a financial analyst comparing two public companies based on excerpts fro
 
 Compare these two companies across the following dimensions. Use specific numbers from the filings where available.
 
+FORMATTING RULES (strictly follow these):
+- Format all dollar amounts as plain text only: "$391 billion" or "$391,035 million"
+- NEVER place ** bold markers inside or immediately around numbers and dollar amounts
+- NEVER use LaTeX, math notation, or asterisks inside financial figures
+- Bold only labels and headers, never numeric values
+- Use plain hyphens for bullet points, not asterisks
+- When bolding a label before a number, end the bold before the dollar sign: "**Revenue:** $391 billion" not "**$391 billion**"
+
 ## 1. REVENUE & GROWTH
 - Recent revenue figures and year-over-year growth rates for each company
 - Key revenue drivers and segment breakdown if available
