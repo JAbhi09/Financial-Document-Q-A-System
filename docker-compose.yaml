@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Main Streamlit Application
+  financial-qa-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: financial-qa-system
+    ports:
+      - "8501:8501"
+    environment:
+      # Google API Key - REQUIRED for Gemini AI
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # SEC EDGAR User Agent - REQUIRED for SEC API compliance
+      - USER_AGENT=${USER_AGENT:-YourName email@example.com}
+      # Optional: Set log level
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      # Persist ChromaDB vector stores
+      - chroma_data_main:/app/chroma_db
+      - chroma_data_aapl:/app/chroma_db_AAPL
+      - chroma_data_msft:/app/chroma_db_MSFT
+      - chroma_data_nflx:/app/chroma_db_NFLX
+      - chroma_data_tsla:/app/chroma_db_TSLA
+      - chroma_data_wmt:/app/chroma_db_WMT
+      - chroma_data_jpm:/app/chroma_db_JPM
+      - chroma_data_jnj:/app/chroma_db_JNJ
+      # Persist analysis results
+      # - ./analysis:/app/analysis
+      # Mount .env file for environment variables
+      - ./.env:/app/.env:ro
+    restart: unless-stopped
+    networks:
+      - financial-qa-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8501/_stcore/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  financial-qa-network:
+    driver: bridge
+
+
+volumes:
+  chroma_data_main:
+  chroma_data_aapl:
+  chroma_data_msft:
+  chroma_data_nflx:
+  chroma_data_tsla:
+  chroma_data_wmt:
+  chroma_data_jpm:
+  chroma_data_jnj:

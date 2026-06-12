@@ -1,69 +1,6 @@
-# from langchain_core.prompts import ChatPromptTemplate
-
-# # Standard Financial Q&A Prompt
-# FINANCIAL_QA_PROMPT = ChatPromptTemplate.from_template("""
-# You are a financial analyst expert. Answer the question using ONLY the provided SEC filing excerpts.
-
-# Sources:
-# {context}
-
-# Question: {question}
-
-# Instructions:
-# 1. Answer based strictly on provided sources.
-# 2. Include specific numbers and dates where available.
-# 3. Cite sources using [Source X] format corresponding to the list above.
-# 4. If information is unavailable, state "Information not found in provided documents".
-# 5. Be concise and professional.
-# """)
-
-# # Comparision Prompt (Long Context)
-# COMPARISON_PROMPT = """
-# Compare these two fiscal year 10-K filings for {company}:
-
-# FY{year1} Filing:
-# {filing1}
-
-# FY{year2} Filing:
-# {filing2}
-
-# Analyze changes in:
-# 1. Revenue and profitability trends (specific numbers)
-# 2. New, removed, or modified risk factors
-# 3. Strategic direction shifts mentioned in MD&A
-# 4. Material events or acquisitions
-# 5. Changes in accounting policies or estimates
-
-# Provide specific citations and page references.
-# """
-
-# # Risk Factor Analysis Prompt
-# RISK_ANALYSIS_PROMPT = """
-# Analyze the Risk Factors (Item 1A) sections from these two 10-K filings.
-
-# Current Year (FY{current_year}):
-# {current_filing}
-
-# Prior Year (FY{prior_year}):
-# {prior_filing}
-
-# Task:
-# 1. Identify the TOP 3 revenue-related risk factors in the current filing.
-# 2. For each risk factor:
-#    - Summarize the risk in 1-2 sentences.
-#    - Note if this risk is NEW, MODIFIED, or UNCHANGED from prior year.
-#    - If modified, explain what changed.
-#    - Quote the specific language changes if applicable.
-# 3. Assess overall risk profile change (increased/decreased/stable).
-
-# Format your response with clear headings and specific citations.
-# """
-
-
-
 from langchain_core.prompts import ChatPromptTemplate
 
-# ✅ IMPROVED: Standard Financial Q&A Prompt
+# IMPROVED: Standard Financial Q&A Prompt
 FINANCIAL_QA_PROMPT = ChatPromptTemplate.from_template("""
 You are a financial analyst expert at reading SEC 10-K filings. Answer questions using ONLY the provided context.
 
@@ -87,7 +24,7 @@ Instructions:
 Answer:
 """)
 
-# ✅ IMPROVED: Comparison Prompt with Better Structure
+# IMPROVED: Comparison Prompt with Better Structure
 COMPARISON_PROMPT = """
 You are analyzing two consecutive 10-K filings for {company}.
 
@@ -140,7 +77,7 @@ Note any:
 Provide specific page references or section citations where possible.
 """
 
-# ✅ IMPROVED: Risk Factor Analysis Prompt
+# IMPROVED: Risk Factor Analysis Prompt
 RISK_ANALYSIS_PROMPT = """
 You are conducting a detailed risk factor analysis comparing two consecutive 10-K filings.
 
@@ -193,7 +130,7 @@ Provide a summary judgment:
 Use specific quotes and language from the filings to support your analysis.
 """
 
-# ✅ NEW: Comprehensive Financial Summary Prompt
+# NEW: Comprehensive Financial Summary Prompt
 FINANCIAL_SUMMARY_PROMPT = """
 You are creating a comprehensive financial summary from a 10-K filing.
 

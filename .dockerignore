@@ -1,0 +1,54 @@
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+ENV/
+env/
+.env/
+.venv/
+intfinproject/
+
+# Distribution / packaging
+build/
+dist/
+.eggs/
+*.egg-info/
+*.egg
+
+# IDE/editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Databases and persistent data
+chroma_db/
+chroma_db_*/
+*.sqlite3
+
+# Logs, temp, caches
+*.log
+*.tmp
+tmp/
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Secrets
+.env
+.env.*
+credentials.json
+
+# Node
+node_modules/
+
+# Streamlit cache
+.streamlit/
