@@ -92,6 +92,13 @@ def extract_claims_from_text(text: str) -> list:
             if not re.search(pat, sl):
                 continue
 
+            # Sentences about operating cash flow belong to the 'cash' metric; skip net_income
+            # regardless of whether the cash-flow phrase appears before or after the net_income term.
+            if metric == 'net_income' and re.search(
+                r'\b(operating cash flow|cash flow from operations)\b', sl
+            ):
+                continue
+
             if increase_pat.search(sl):
                 direction = 'increase'
             elif decrease_pat.search(sl):

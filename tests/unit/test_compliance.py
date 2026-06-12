@@ -711,6 +711,16 @@ class TestDiscrepancyDetection:
         )
 
     @pytest.mark.unit
+    def test_cash_flow_context_not_matched_as_net_income(self):
+        """Sentences about operating cash flow must not produce a net_income claim."""
+        text = "The operating cash flow decrease reflects lower net earnings compared to the prior year."
+        claims = extract_claims_from_text(text)
+        ni_claims = [c for c in claims if c['metric'] == 'net_income']
+        assert ni_claims == [], (
+            f"Cash-flow context sentence must not match net_income; got {ni_claims}"
+        )
+
+    @pytest.mark.unit
     def test_gross_profit_dollar_still_matches(self):
         """'Gross profit increased to $181 billion' (dollar amount) must still match."""
         text = "Gross profit increased to $181 billion driven by improved services mix."
