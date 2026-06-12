@@ -187,6 +187,7 @@ FORMATTING RULES (strictly follow these):
 - Format all dollar amounts as plain text only: "$391 billion" or "$391,035 million"
 - NEVER place ** bold markers inside or immediately around numbers and dollar amounts
 - NEVER use LaTeX, math notation, or asterisks inside financial figures
+- NEVER use backticks (`) anywhere in your response — not around numbers, not around code, not around anything
 - Bold only labels and headers, never numeric values
 - Use plain hyphens for bullet points, not asterisks
 - When bolding a label before a number, end the bold before the dollar sign: "**Revenue:** $391 billion" not "**$391 billion**"

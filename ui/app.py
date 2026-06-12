@@ -166,6 +166,7 @@ ticker = st.sidebar.text_input("Enter Ticker Symbol (e.g. AAPL)", "AAPL").upper(
 def _clean_latex_artifacts(text: str) -> str:
     text = re.sub(r'\*\*(\$[\d,\.]+)', r'\1', text)
     text = re.sub(r'([\d,\.]+\s*(?:million|billion|trillion))\*\*', r'\1', text)
+    text = re.sub(r'`([^`]+)`', r'\1', text)
     return text
 
 
