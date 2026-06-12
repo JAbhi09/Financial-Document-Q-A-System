@@ -2,204 +2,161 @@
 
 **Project Name**: Financial Document Q&A System with Regulatory Compliance  
 **Repository**: JAbhi09/Financial-Document-Q-A-System  
-**Last Updated**: February 1, 2026  
-**Status**: ✅ **Production Ready**
+**Last Updated**: June 12, 2026  
+**Status**: ✅ **Production Ready — Actively Maintained**
 
 ---
 
-## 📊 Executive Summary
+## Executive Summary
 
-This project is an **AI-powered financial analysis platform** that combines SEC EDGAR data retrieval, RAG (Retrieval-Augmented Generation), and fraud detection capabilities. The system enables users to query 10-K filings using natural language and receive intelligent, citation-backed answers while detecting potential financial irregularities.
-
-### Recent Updates (Feb 1, 2026)
-- Updated document `Last Updated` date to reflect current progress snapshot.
-- Small documentation cleanups and minor wording improvements across guides.
+An **AI-powered financial analysis platform** combining SEC EDGAR data retrieval, RAG (Retrieval-Augmented Generation), and fraud detection. Users query 10-K filings in natural language and get citation-backed answers, along with automated earnings manipulation detection and narrative discrepancy analysis.
 
 ### Current State
-- ✅ **Fully Functional**: All core features implemented and tested
-- ✅ **Documented**: Comprehensive user guides and Docker deployment docs
-- ✅ **Containerized**: Docker and Docker Compose configurations ready
-- ✅ **Production-Ready**: Tested with multiple companies (AAPL, MSFT, TSLA, WMT, NFLX, JPM, JNJ)
+- All core features implemented and tested
+- Three analysis tabs: Document Q&A, Year-over-Year Comparison, Company Comparison
+- Post-launch quality fixes applied across discrepancy tuning, retrieval diversity, and rendering cleanup
+- 107 tests passing, 73% code coverage
 
 ---
 
-## 🎯 Project Milestones
+## Project Milestones
 
-### Phase 1: Foundation & Data Pipeline ✅ (Completed: Jan 18-21, 2026)
+### Phase 1: Foundation & Data Pipeline (Jan 18–21, 2026)
 
-#### Objectives
-- Build SEC EDGAR MCP (Model Context Protocol) server
-- Implement document fetching and parsing
-- Set up project structure
+**Goal:** Build SEC EDGAR integration and document processing pipeline.
 
-#### Achievements
-- ✅ Created custom MCP server for SEC EDGAR integration
-  - [server.py](file:///d:/Int_fin_doc/mcp_server/server.py) - Main server implementation
-  - [utils.py](file:///d:/Int_fin_doc/mcp_server/utils.py) - Helper utilities
-- ✅ Implemented rate limiting and User-Agent compliance with SEC policies
-- ✅ Successfully fetched and parsed 10-K filings for multiple companies
-- ✅ Handled legacy parser warnings and document format variations
+- Custom MCP server for SEC EDGAR (`mcp_server/server.py`, `utils.py`)
+- Rate limiting and User-Agent compliance with SEC policies
+- 10-K ingestion for multiple companies via `edgartools`
 
-#### Key Files Created
-- `mcp_server/server.py` - MCP server core
-- `mcp_server/utils.py` - Utility functions
-- `requirements.txt` - Python dependencies
-
-#### Challenges Overcome
-- **Date Object Subscriptability Error**: Fixed datetime handling in EDGAR data parsing
-- **SEC Rate Limiting**: Implemented proper User-Agent headers and request throttling
-- **Document Format Variations**: Handled different 10-K filing structures across companies
+**Challenges overcome:**
+- `datetime.date` subscriptability error in EDGAR parser
+- SEC rate limiting — implemented request throttling and retry logic
+- Document format variations across companies
 
 ---
 
-### Phase 2: RAG Pipeline & AI Integration ✅ (Completed: Jan 21-22, 2026)
+### Phase 2: RAG Pipeline & AI Integration (Jan 21–22, 2026)
 
-#### Objectives
-- Implement document chunking and embedding
-- Set up ChromaDB vector store
-- Integrate Google Gemini 2.5 Flash for analysis
+**Goal:** Implement chunking, vector storage, and Gemini API integration.
 
-#### Achievements
-- ✅ Built section-aware document chunking system
-  - Optimized for financial document structure (MD&A, Risk Factors, etc.)
-  - Element-based parsing for better context preservation
-- ✅ Integrated ChromaDB for vector storage
-  - Per-company isolated databases (`chroma_db_<TICKER>`)
-  - Efficient similarity search and retrieval
-- ✅ Connected Gemini 2.5 Flash API
-  - 1M token context window for long-document analysis
-  - Streaming responses for better UX
-- ✅ Implemented citation system with page numbers and excerpts
+- Section-aware document chunking (preserves Item 1A, Item 7, etc.)
+- ChromaDB vector store with per-company isolation (`chroma_db_<TICKER>`)
+- Gemini 2.5 Flash integration (1M token context, streaming responses)
+- Citation system referencing source sections
 
-#### Key Files Created
-- `rag/ingestion.py` - Document processing and chunking
-- `rag/vector_store.py` - ChromaDB integration
-- `analysis/gemini_engine.py` - Gemini API wrapper
-- `analysis/prompts.py` - Prompt templates
+**Key files:** `rag/ingestion.py`, `rag/vector_store.py`, `analysis/gemini_engine.py`, `analysis/prompts.py`
 
-#### Challenges Overcome
-- **NLTK Resource Error**: Fixed missing `punkt_tab` tokenizer data
-  - Solution: Added automatic download in setup instructions
-- **Module Import Issues**: Resolved LangChain and dependency conflicts
-- **TSLA 10-K Parsing**: Debugged "0 document chunks" issue
-  - Root cause: Legacy parser compatibility
-  - Solution: Enhanced error handling and fallback parsing
+**Challenges overcome:**
+- NLTK `punkt_tab` tokenizer missing — added to setup docs
+- LangChain module import conflicts — updated `requirements.txt`
+- TSLA 10-K producing 0 chunks — fixed legacy parser compatibility
 
 ---
 
-### Phase 3: Compliance & Fraud Detection ✅ (Completed: Jan 21-22, 2026)
+### Phase 3: Compliance & Fraud Detection (Jan 21–22, 2026)
 
-#### Objectives
-- Implement linguistic analysis for fraud indicators
-- Build Beneish M-Score calculator
-- Create discrepancy detection system
+**Goal:** Implement three independent fraud detection signals.
 
-#### Achievements
-- ✅ **Linguistic Analysis Module**
-  - Passive voice detection
-  - Hedging language identification
-  - Lexical diversity metrics
-  - Vagueness scoring
-  - Based on Humpherys et al. (2011) research
-- ✅ **Beneish M-Score Implementation**
-  - Calculates 8 financial ratios (DSRI, GMI, AQI, SGI, DEPI, SGAI, LVGI, TATA)
-  - Automated earnings manipulation detection
-  - ~76% accuracy based on academic studies
-- ✅ **Discrepancy Detection**
-  - Cross-references MD&A narratives with financial tables
-  - Identifies inconsistencies in reporting
+- **Beneish M-Score**: 8-ratio formula from Beneish (1999), sourced from real SEC XBRL data
+- **Linguistic Analysis**: Passive voice, hedging, lexical diversity metrics (Humpherys et al. 2011)
+- **Discrepancy Detection**: Cross-references MD&A narrative claims against reported financials
 
-#### Key Files Created
-- `compliance/linguistics.py` - Linguistic fraud indicators
-- `compliance/beneish.py` - M-Score calculator
-- `compliance/discrepancy.py` - Narrative-data consistency checker
-
-#### Research Foundations
-- Humpherys et al. (2011): "Identification of Fraudulent Financial Statements Using Linguistic Credibility Analysis"
-- Purda & Skillicorn (2012): "Accounting Variables, Deception, and a Bag of Words"
-- FinanceBench evaluation dataset
+**Key files:** `compliance/beneish.py`, `compliance/linguistics.py`, `compliance/discrepancy.py`
 
 ---
 
-### Phase 4: User Interface & Experience ✅ (Completed: Jan 22, 2026)
+### Phase 4: User Interface & Experience (Jan 22, 2026)
 
-#### Objectives
-- Build intuitive Streamlit web interface
-- Implement multi-tab navigation
-- Add real-time streaming responses
+**Goal:** Build production-quality Streamlit web app.
 
-#### Achievements
-- ✅ **Interactive Web UI**
-  - Clean, professional Streamlit interface
-  - Sidebar configuration (API key, ticker selection)
-  - Real-time document processing status
-- ✅ **Multi-Mode Analysis**
-  - **Q&A Chat**: Natural language queries with citations
-  - **Financial Analysis**: Automated metric extraction and visualization
-  - **Compliance Reports**: Red flag detection and M-Score analysis
-- ✅ **User Experience Features**
-  - Streaming responses for immediate feedback
-  - Expandable source citations
-  - Error handling with helpful messages
-  - Session state management
+- Multi-tab navigation: Document Q&A, Compare Years, Compare Companies
+- Real-time streaming token output
+- Compliance report with side-by-side metric cards
+- Session state caching — processed companies load in ~5 seconds on repeat visits
+- Smart query routing (metric extraction vs. full RAG chain)
 
-#### Key Files Created
-- `ui/app.py` - Main Streamlit application
+**Key file:** `ui/app.py`
 
-#### Tested Companies
-- ✅ Apple (AAPL)
-- ✅ Microsoft (MSFT)
-- ✅ Tesla (TSLA)
-- ✅ Walmart (WMT)
-- ✅ Netflix (NFLX)
-- ✅ JPMorgan Chase (JPM)
-- ✅ Johnson & Johnson (JNJ)
+**Tested companies:** AAPL · MSFT · TSLA · WMT · NFLX · JPM · JNJ
 
 ---
 
-### Phase 5: Documentation & Deployment ✅ (Completed: Jan 24, 2026)
+### Phase 5: Documentation & Deployment (Jan 24, 2026)
 
-#### Objectives
-- Create comprehensive user documentation
-- Containerize application with Docker
-- Prepare for production deployment
+**Goal:** Package, document, and prepare for production deployment.
 
-#### Achievements
-- ✅ **User Documentation**
-  - [USER_GUIDE.md](file:///d:/Int_fin_doc/USER_GUIDE.md) - 564-line comprehensive guide
-    - Installation instructions (Windows/macOS/Linux)
-    - Step-by-step usage tutorials
-    - Troubleshooting section
-    - Architecture overview
-    - FAQ section
-- ✅ **Docker Configuration**
-  - [Dockerfile](file:///d:/Int_fin_doc/Dockerfile) - Multi-stage build for optimization
-  - [docker-compose.yaml](file:///d:/Int_fin_doc/docker-compose.yaml) - Orchestration config
-  - [DOCKER_GUIDE.md](file:///d:/Int_fin_doc/DOCKER_GUIDE.md) - Deployment documentation
-  - [.dockerignore](file:///d:/Int_fin_doc/.dockerignore) - Build optimization
-- ✅ **Version Control**
-  - [.gitignore](file:///d:/Int_fin_doc/.gitignore) - Proper exclusions for secrets and cache
-- ✅ **Project README**
-  - [README.md](file:///d:/Int_fin_doc/README.md) - Quick start and architecture overview
-
-#### Key Files Created
-- `USER_GUIDE.md` - End-user documentation
-- `DOCKER_GUIDE.md` - Containerization guide
-- `Dockerfile` - Container image definition
-- `docker-compose.yaml` - Multi-container orchestration
-- `.gitignore` - Version control configuration
-- `.dockerignore` - Docker build optimization
+- Docker and Docker Compose configuration
+- `USER_GUIDE.md` (564 lines), `DOCKER_GUIDE.md`, `HOW_IT_WORKS.md`
+- `.gitignore` / `.dockerignore` — secrets and cache excluded from repo
 
 ---
 
-## 🏗️ System Architecture
+### Phase 6: Post-Launch Fixes & Quality Improvements (Jan 29 – Jun 12, 2026)
 
-### Component Overview
+This phase covers incremental quality improvements applied after the initial release.
+
+#### Beneish & Discrepancy Fixes
+
+**commit `2689dc7` — Discrepancy checker unit mismatch**
+- Filtered out table artifacts (page numbers, column headers) from dollar extraction
+- Normalized dollar values before comparing narrative claims to financial data
+- Prevents false HIGH-severity flags from formatting noise in filing text
+
+**commit `10d3a5e` — Discrepancy false positive reduction**
+- Required explicit unit keyword in dollar extractions (e.g. "million", "billion")
+- Excluded gross margin percentage claims from dollar-value matching logic
+- Result: cleaner, higher-confidence discrepancy alerts
+
+**commit `b378fc6` — Net income metric matching**
+- Excluded operating cash flow sentences from net income claim matching
+- Fixes a class of false positives where cash flow narrative was matched against net income financial data
+
+#### UI & Configuration
+
+**commit `54e36d4` — API key UX**
+- Hides the API key text input when a key is already present in `.env`
+- Shows a "✓ API key loaded" confirmation instead
+- Prevents confusion when the key is set but the input appears empty
+
+#### Retrieval Quality
+
+**commit `403ef78` — Dedup and MMR diversity**
+- Strengthened chunk deduplication: normalizes whitespace and casing before MD5 hashing, catches near-duplicate chunks that were previously stored separately
+- Increased MMR diversity parameter (λ from 0.7 → 0.3): retrieved chunks are now more topically diverse, reducing cases where all 5 chunks came from the same paragraph
+
+#### Rendering & Output Cleanup
+
+**commit `aca5891` — LaTeX/markdown rendering fix**
+
+*Root cause:* Gemini formatted dollar amounts as `**$414,340 million**`. Inside a number, the `**` delimiters confused Streamlit's markdown renderer into treating the content as LaTeX math.
+
+*Fix — two layers:*
+1. `COMPANY_COMPARISON_PROMPT` now includes explicit formatting rules:
+   - Never place `**` inside or around dollar amounts
+   - End bold before the dollar sign: `**Revenue:** $391 billion`
+   - Never use LaTeX, math notation, or asterisks inside financial figures
+2. `_clean_latex_artifacts()` in `ui/app.py` strips residual patterns with regex before rendering
+
+**commit `61e680f` — Backtick code rendering fix**
+
+*Root cause:* Gemini wrapped multi-word financial phrases in backticks (e.g. `` `414,340 million in 2025 and` ``), which Streamlit rendered as green monospace code font.
+
+*Fix:*
+1. Added to prompt: "NEVER use backticks anywhere in your response"
+2. Replaced two narrow backtick regexes with a single broad pattern:
+   ```python
+   text = re.sub(r'`([^`]+)`', r'\1', text)  # strips any `anything`
+   ```
+
+---
+
+## System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                  Streamlit UI (ui/app.py)                   │
-│         User Interface & Application Orchestration          │
+│   Tab 1: Q&A  │  Tab 2: Compare Years  │  Tab 3: Compare   │
 └───────────────────┬─────────────────────────────────────────┘
                     │
         ┌───────────┴──────────┬──────────────┬─────────────┐
@@ -215,329 +172,132 @@ This project is an **AI-powered financial analysis platform** that combines SEC 
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **Frontend** | Streamlit | Web UI framework |
-| **AI/LLM** | Google Gemini 2.5 Flash | Question answering & analysis |
-| **Orchestration** | LangChain | LLM workflow management |
-| **Vector DB** | ChromaDB | Document embeddings & retrieval |
-| **Embeddings** | Sentence Transformers | Text vectorization |
-| **Data Source** | SEC EDGAR (edgartools) | Financial filings |
-| **NLP** | NLTK | Linguistic analysis |
-| **Data Processing** | Pandas | Financial data manipulation |
-| **Containerization** | Docker & Docker Compose | Deployment |
+| Frontend | Streamlit | Web UI framework |
+| AI/LLM | Google Gemini 2.5 Flash | Question answering & analysis |
+| Orchestration | LangChain | LLM workflow management |
+| Vector DB | ChromaDB | Document embeddings & retrieval |
+| Embeddings | Sentence Transformers | Text vectorization |
+| Data Source | SEC EDGAR (edgartools) | Financial filings |
+| NLP | NLTK | Linguistic analysis |
+| Data Processing | Pandas | Financial data manipulation |
+| Containerization | Docker & Docker Compose | Deployment |
 
 ---
 
-## 📁 Project Structure
+## Testing & Validation
 
-```
-Int_fin_doc/
-├── mcp_server/           # SEC EDGAR data fetching
-│   ├── server.py         # MCP server implementation
-│   ├── utils.py          # Helper functions
-│   └── __init__.py
-├── rag/                  # Document processing & retrieval
-│   ├── ingestion.py      # Chunking & embedding
-│   ├── vector_store.py   # ChromaDB interface
-│   └── __init__.py
-├── analysis/             # AI analysis engine
-│   ├── gemini_engine.py  # Gemini API integration
-│   ├── prompts.py        # Prompt templates
-│   └── __init__.py
-├── compliance/           # Fraud detection
-│   ├── beneish.py        # M-Score calculator
-│   ├── linguistics.py    # Linguistic analysis
-│   ├── discrepancy.py    # Consistency checker
-│   └── __init__.py
-├── ui/                   # User interface
-│   ├── app.py            # Streamlit application
-│   └── __init__.py
-├── chroma_db_*/          # Per-company vector databases
-├── analysis/             # Generated analysis reports
-├── Dockerfile            # Container image
-├── docker-compose.yaml   # Multi-container config
-├── requirements.txt      # Python dependencies
-├── .env                  # Environment variables (local)
-├── .gitignore            # Version control exclusions
-├── .dockerignore         # Docker build exclusions
-├── README.md             # Project overview
-├── USER_GUIDE.md         # Comprehensive user manual
-├── DOCKER_GUIDE.md       # Deployment guide
-└── LICENSE               # License information
-```
+### Coverage
+
+- **107 tests passing**, 3 skipped, 73% overall coverage
+- Unit tests: compliance modules, MCP server, RAG pipeline (no network required)
+- Integration tests: end-to-end flow against real SEC EDGAR
+
+### Validated Scenarios
+
+- Q&A across revenue, risk, strategy, and specific section queries
+- YoY comparison for financial metrics and risk factor deltas
+- Company comparison across M-Score, linguistic indicators, and AI narrative
+- Discrepancy detection with HIGH and MEDIUM severity cases
+- Edge cases: large documents (TSLA 400+ pages), missing XBRL data, rate limits
 
 ---
 
-## 🧪 Testing & Validation
+## Known Issues Resolved
 
-### Tested Scenarios
-
-#### ✅ Document Processing
-- Successfully processed 10-K filings for 7+ companies
-- Handled documents ranging from 100-500+ pages
-- Verified chunking preserves context across sections
-
-#### ✅ Q&A Functionality
-- **Revenue Questions**: "What are the main revenue streams?"
-- **Risk Analysis**: "Summarize the top 5 risk factors"
-- **Comparative Queries**: "How did revenue change from 2023 to 2024?"
-- **Specific Sections**: "What does the MD&A say about supply chain?"
-
-#### ✅ Compliance Analysis
-- Generated red flag reports for multiple companies
-- Calculated Beneish M-Scores with financial data extraction
-- Identified hedging language and vagueness patterns
-
-#### ✅ Edge Cases
-- **Large Documents**: TSLA 10-K (400+ pages) - ✅ Processed successfully
-- **Missing Data**: Handled incomplete financial tables gracefully
-- **API Rate Limits**: Implemented retry logic and backoff
-- **Corrupted Databases**: Documented recovery procedures
+| Issue | Fix | Commit |
+|-------|-----|--------|
+| Discrepancy false positives from table artifacts | Unit normalization, filter table noise | `2689dc7` |
+| Gross margin % matched as dollar discrepancy | Exclude percentage-only claims | `10d3a5e` |
+| Cash flow sentences matched as net income | Exclude operating cash flow from net income matcher | `b378fc6` |
+| API key input shown when .env key exists | Hide input, show confirmation when key loaded | `54e36d4` |
+| Near-duplicate chunks stored separately | Normalize before MD5 hash | `403ef78` |
+| All retrieved chunks from same paragraph | Increase MMR diversity λ: 0.7 → 0.3 | `403ef78` |
+| `**$number**` renders as LaTeX in Streamlit | Prompt rules + regex cleanup | `aca5891` |
+| `` `number` `` renders as code in Streamlit | Prompt rules + broad backtick regex | `61e680f` |
 
 ---
 
-## 🐛 Issues Resolved
+## Known Limitations
 
-### Critical Bugs Fixed
-
-| Issue | Status | Resolution | Date |
-|-------|--------|------------|------|
-| `datetime.date` object not subscriptable | ✅ Fixed | Updated date handling in EDGAR parser | Jan 21 |
-| NLTK `punkt_tab` resource not found | ✅ Fixed | Added download instructions to setup | Jan 21 |
-| TSLA 10-K producing 0 chunks | ✅ Fixed | Enhanced legacy parser compatibility | Jan 22 |
-| Module import errors (LangChain) | ✅ Fixed | Updated requirements.txt dependencies | Jan 21 |
-| Gemini model not found (404) | ✅ Documented | Added troubleshooting for API key issues | Jan 24 |
-| ChromaDB corruption | ✅ Documented | Created database reset procedures | Jan 24 |
-
-### Known Limitations
-
-> [!NOTE]
-> These are design constraints, not bugs:
-
-1. **Annual Data Only**: System analyzes 10-K filings (annual reports), not real-time data
-2. **US Companies Only**: Limited to SEC-registered entities
-3. **English Language**: No multi-language support
-4. **API Rate Limits**: Subject to Google Gemini API quotas
-5. **Accuracy Disclaimer**: AI-generated answers should be verified with source documents
+1. **US companies only** — SEC EDGAR coverage
+2. **Annual data** — 10-Q quarterly support not yet implemented
+3. **Data freshness** — sourced from last 10-K (filed 60–90 days after fiscal year end)
+4. **AI accuracy** — answers should be verified against shown source sections
+5. **M-Score accuracy** — ~76% per academic studies, not a guarantee of fraud
+6. **First run is slow** — embedding 200+ chunks takes 3–7 minutes locally
 
 ---
 
-## 📈 Performance Metrics
-
-### Processing Times (Approximate)
+## Performance Metrics
 
 | Task | First Run | Cached |
 |------|-----------|--------|
-| Document Download | 10-30s | N/A |
-| Chunking & Embedding | 2-5 min | N/A |
-| Database Storage | 30-60s | N/A |
-| **Total First Load** | **3-7 min** | **5-10s** |
-| Q&A Query | 5-15s | 5-15s |
-| Compliance Report | 30-60s | 30-60s |
+| Document download | 10–30s | N/A |
+| Chunking & embedding | 2–5 min | N/A |
+| Total first load | 3–7 min | 5–10s |
+| Q&A query | 5–15s | 5–15s |
+| Compliance report | 30–60s | 30–60s |
+| YoY comparison | 1–3 min | 1–3 min |
+| Company comparison (AI) | 30–90s | instant |
 
-### Resource Usage
-
-- **Disk Space**: ~50-200 MB per company (vector database)
-- **RAM**: 2-4 GB during processing, 1-2 GB idle
-- **Network**: ~5-20 MB per 10-K download
+**Disk per company:** 50–200 MB | **RAM during processing:** 2–4 GB | **RAM idle:** 1–2 GB
 
 ---
 
-## 🚀 Deployment Options
+## Deployment Options
 
-### Local Development
+### Local
 ```bash
-# Virtual environment setup
 python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+venv\Scripts\activate       # Windows
 pip install -r requirements.txt
 streamlit run ui/app.py
 ```
 
-### Docker (Recommended for Production)
+### Docker
 ```bash
-# Using Docker Compose
 docker-compose up -d
-
-# Access at http://localhost:8501
+# http://localhost:8501
 ```
 
-### Cloud Platforms
-- ✅ **Tested**: Local Windows environment
-- 📋 **Documented**: Docker deployment for cloud
-- 🎯 **Compatible with**:
-  - Google Cloud Run
-  - AWS ECS/Fargate
-  - Azure Container Instances
-  - Heroku
-  - Streamlit Cloud
+Compatible with: Google Cloud Run · AWS ECS/Fargate · Azure Container Instances · Streamlit Cloud
 
 ---
 
-## 📚 Documentation Inventory
+## Future Roadmap
 
-| Document | Lines | Purpose | Status |
-|----------|-------|---------|--------|
-| [README.md](file:///d:/Int_fin_doc/README.md) | 62 | Quick start & overview | ✅ Complete |
-| [USER_GUIDE.md](file:///d:/Int_fin_doc/USER_GUIDE.md) | 564 | Comprehensive user manual | ✅ Complete |
-| [DOCKER_GUIDE.md](file:///d:/Int_fin_doc/DOCKER_GUIDE.md) | ~300 | Containerization guide | ✅ Complete |
-| [PROJECT_PROGRESS.md](file:///d:/Int_fin_doc/PROJECT_PROGRESS.md) | This file | Development history | ✅ Complete |
-
----
-
-## 🔮 Future Enhancements (Roadmap)
-
-### Potential Features
-- [ ] **Multi-Document Comparison**: Side-by-side analysis of multiple companies
-- [ ] **10-Q Support**: Quarterly report analysis
-- [ ] **8-K Integration**: Real-time event monitoring
-- [ ] **Export Functionality**: PDF/Excel report generation
-- [ ] **User Authentication**: Multi-user support with saved sessions
-- [ ] **Advanced Visualizations**: Interactive charts for financial trends
-- [ ] **Email Alerts**: Notify on new filings or red flags
-- [ ] **API Endpoint**: RESTful API for programmatic access
-
-### Technical Improvements
-- [ ] **Caching Layer**: Redis for faster repeated queries
-- [ ] **Async Processing**: Background jobs for large documents
-- [ ] **Model Fine-Tuning**: Custom embeddings for financial domain
-- [ ] **A/B Testing**: Compare different LLM models
-- [ ] **Monitoring**: Prometheus/Grafana integration
+- [ ] 10-Q quarterly report support
+- [ ] Export to PDF/Excel
+- [ ] 8-K real-time event monitoring
+- [ ] Multi-user authentication with saved sessions
+- [ ] RESTful API endpoint
+- [ ] Redis caching layer for repeated queries
+- [ ] Interactive financial charts
 
 ---
 
-## 👥 Development Timeline
+## Documentation Inventory
 
-### January 18-21, 2026: Core Development
-- Built MCP server and RAG pipeline
-- Integrated Gemini AI
-- Implemented compliance modules
-- Created Streamlit UI
-- Debugged critical issues
-
-### January 22, 2026: Testing & Refinement
-- Tested with multiple companies
-- Fixed TSLA parsing issue
-- Enhanced error handling
-- Created user guide
-
-### January 24, 2026: Production Preparation
-- Dockerized application
-- Updated documentation
-- Created deployment guides
-- Finalized .gitignore
-
-### January 29, 2026: Progress Documentation
-- Created comprehensive progress report
-- Documented entire development journey
+| Document | Purpose |
+|----------|---------|
+| `README.md` | Project overview, quick start, feature list |
+| `HOW_IT_WORKS.md` | Full architecture walkthrough with data flow diagrams |
+| `USER_GUIDE.md` | End-user manual with installation and troubleshooting |
+| `DOCKER_GUIDE.md` | Containerization and production deployment |
+| `TESTING_GUIDE.md` | How to run and extend the test suite |
+| `PROJECT_PROGRESS.md` | This file — development history and changelog |
 
 ---
 
-## 🎓 Key Learnings
+## Research Foundations
 
-### Technical Insights
-1. **Document Chunking**: Section-aware chunking significantly improves retrieval accuracy
-2. **Context Windows**: Gemini's 1M token limit enables whole-document analysis
-3. **Vector Databases**: Per-company isolation prevents cross-contamination
-4. **API Design**: Proper User-Agent headers are critical for SEC compliance
-
-### Best Practices Implemented
-- ✅ Environment variable management for secrets
-- ✅ Comprehensive error handling and logging
-- ✅ User-friendly documentation at multiple levels
-- ✅ Containerization for reproducible deployments
-- ✅ Citation tracking for AI-generated content
-
-### Challenges & Solutions
-- **Challenge**: Large documents exceeding token limits
-  - **Solution**: Implemented smart chunking with overlap
-- **Challenge**: SEC rate limiting
-  - **Solution**: Added request throttling and proper headers
-- **Challenge**: Inconsistent 10-K formats
-  - **Solution**: Robust parsing with fallback mechanisms
+- Beneish (1999) — "The Detection of Earnings Manipulation"
+- Humpherys et al. (2011) — "Identification of Fraudulent Financial Statements Using Linguistic Credibility Analysis"
+- Purda & Skillicorn (2012) — "Accounting Variables, Deception, and a Bag of Words"
+- FinanceBench evaluation dataset
 
 ---
 
-## 📊 Success Metrics
-
-### Functionality
-- ✅ **100%** of core features implemented
-- ✅ **7+** companies successfully tested
-- ✅ **0** critical bugs remaining
-- ✅ **3** comprehensive documentation files
-
-### Code Quality
-- ✅ Modular architecture with clear separation of concerns
-- ✅ Consistent error handling across modules
-- ✅ Type hints and docstrings in key functions
-- ✅ No hardcoded credentials (environment variables)
-
-### User Experience
-- ✅ Intuitive UI with minimal learning curve
-- ✅ Real-time feedback during processing
-- ✅ Clear error messages with actionable guidance
-- ✅ Comprehensive troubleshooting documentation
-
----
-
-## 🏆 Project Status: COMPLETE ✅
-
-This project has successfully achieved all planned objectives:
-
-1. ✅ **Data Pipeline**: Robust SEC EDGAR integration
-2. ✅ **AI Analysis**: Intelligent Q&A with citations
-3. ✅ **Fraud Detection**: Research-backed compliance tools
-4. ✅ **User Interface**: Production-ready Streamlit app
-5. ✅ **Documentation**: Comprehensive guides for all users
-6. ✅ **Deployment**: Docker-ready containerization
-
-### Ready For
-- ✅ Production deployment
-- ✅ End-user distribution
-- ✅ Academic demonstrations
-- ✅ Portfolio showcasing
-- ✅ Further development/extension
-
----
-
-## 📞 Support & Contribution
-
-### For Users
-- Refer to [USER_GUIDE.md](file:///d:/Int_fin_doc/USER_GUIDE.md) for detailed instructions
-- Check troubleshooting section for common issues
-- Review FAQ for quick answers
-
-### For Developers
-- Code is modular and well-documented
-- Each module has clear responsibilities
-- Environment setup is straightforward
-- Docker ensures consistent development environment
-
----
-
-## 📄 License
-
-See [LICENSE](file:///d:/Int_fin_doc/LICENSE) file for details.
-
----
-
-## 🙏 Acknowledgments
-
-### Research Foundations
-- Humpherys et al. (2011) - Linguistic fraud detection
-- Purda & Skillicorn (2012) - Accounting deception analysis
-- FinanceBench dataset - Evaluation framework
-
-### Technologies
-- Google Gemini AI
-- LangChain
-- ChromaDB
-- Streamlit
-- SEC EDGAR (edgartools)
-
----
-
-*This project represents a complete, production-ready financial analysis platform combining cutting-edge AI with academic research in fraud detection.*
-
-**Last Updated**: January 29, 2026  
-**Version**: 1.0.0  
-**Status**: Production Ready ✅
+**Last Updated**: June 12, 2026  
+**Version**: 1.1.0  
+**Status**: Production Ready — Actively Maintained

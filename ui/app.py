@@ -167,6 +167,11 @@ def _clean_latex_artifacts(text: str) -> str:
     text = re.sub(r'\*\*(\$[\d,\.]+)', r'\1', text)
     text = re.sub(r'([\d,\.]+\s*(?:million|billion|trillion))\*\*', r'\1', text)
     text = re.sub(r'`([^`]+)`', r'\1', text)
+    text = re.sub(r'(\d)(million|billion|trillion)\(', r'\1 \2 (', text)
+    text = re.sub(r'(\d)(million|billion|trillion)', r'\1 \2', text)
+    text = re.sub(r'(\d)\(', r'\1 (', text)
+    text = re.sub(r'(\d),(\d{3})(million|billion)', r'\1,\2 \3', text)
+    text = re.sub(r'\$(\d)', r'\\$\1', text)
     return text
 
 
@@ -566,24 +571,30 @@ with tab_compare:
                 engine = GeminiAnalysisEngine()
 
                 if compare_type in ["Financial Changes + Strategic Shifts", "Both"]:
-                    with st.spinner("Generating financial comparison..."):
-                        comparison = engine.compare_filings(
-                            ticker_to_compare,
-                            year_current, text_current_trimmed,
-                            year_prior,   text_prior_trimmed,
-                        )
                     st.markdown(f"## Financial & Strategic Comparison: FY{year_current} vs FY{year_prior}")
-                    st.markdown(comparison)
+                    _comp_text = ""
+                    _comp_placeholder = st.empty()
+                    for _token in engine.stream_compare_filings(
+                        ticker_to_compare,
+                        year_current, text_current_trimmed,
+                        year_prior,   text_prior_trimmed,
+                    ):
+                        _comp_text += _token
+                        _comp_placeholder.markdown(_clean_latex_artifacts(_comp_text) + "▌")
+                    _comp_placeholder.markdown(_clean_latex_artifacts(_comp_text))
                     st.divider()
 
                 if compare_type in ["Risk Factor Analysis", "Both"]:
-                    with st.spinner("Analyzing risk factor changes..."):
-                        risks = engine.analyze_risks(
-                            year_current, text_current_trimmed,
-                            year_prior,   text_prior_trimmed,
-                        )
                     st.markdown(f"## Risk Factor Analysis: FY{year_current} vs FY{year_prior}")
-                    st.markdown(risks)
+                    _risk_text = ""
+                    _risk_placeholder = st.empty()
+                    for _token in engine.stream_analyze_risks(
+                        year_current, text_current_trimmed,
+                        year_prior,   text_prior_trimmed,
+                    ):
+                        _risk_text += _token
+                        _risk_placeholder.markdown(_clean_latex_artifacts(_risk_text) + "▌")
+                    _risk_placeholder.markdown(_clean_latex_artifacts(_risk_text))
 
             except Exception as e:
                 st.error(f"Comparison failed: {str(e)}")

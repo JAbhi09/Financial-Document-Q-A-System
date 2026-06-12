@@ -75,6 +75,14 @@ Note any:
 - Reclassifications affecting comparability
 - New accounting standards adopted
 
+FORMATTING RULES (strictly follow these):
+- CRITICAL: Never use backticks anywhere in your response
+- NEVER use LaTeX or math notation
+- Format all numbers as plain readable text with proper spacing
+- Always include a space between a number and its unit: "$416,161 million" NEVER "$416,161million"
+- Always include a space before parentheses: "$416,161 million (up 6.4%)" NEVER "$416,161million(up6.4%)"
+- Bold only labels and headers, never numeric values
+
 Provide specific page references or section citations where possible.
 """
 
@@ -127,6 +135,12 @@ Provide a summary judgment:
 - **Risk Trend**: [INCREASING | DECREASING | STABLE]
 - **Rationale**: [2-3 sentences explaining your assessment]
 - **Key Concerns**: [Most material risks requiring ongoing monitoring]
+
+FORMATTING RULES (strictly follow these):
+- NEVER wrap numbers in backticks (``) — all numbers must be plain text
+- NEVER use LaTeX or math notation
+- Format all dollar amounts as plain text: "$112,331 million"
+- Bold only labels and headers, never numeric values
 
 Use specific quotes and language from the filings to support your analysis.
 """

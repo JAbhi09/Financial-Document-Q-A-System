@@ -181,6 +181,24 @@ class GeminiAnalysisEngine:
         response = self.llm.invoke(prompt)
         return response.content
 
+    def stream_compare_filings(self, company: str, year1: str, filing1_text: str, year2: str, filing2_text: str):
+        prompt = COMPARISON_PROMPT.format(
+            company=company, year1=year1, filing1=filing1_text,
+            year2=year2, filing2=filing2_text
+        )
+        for chunk in self.llm.stream(prompt):
+            if chunk.content:
+                yield chunk.content
+
+    def stream_analyze_risks(self, current_year: str, current_filing_text: str, prior_year: str, prior_filing_text: str):
+        prompt = RISK_ANALYSIS_PROMPT.format(
+            current_year=current_year, current_filing=current_filing_text,
+            prior_year=prior_year, prior_filing=prior_filing_text
+        )
+        for chunk in self.llm.stream(prompt):
+            if chunk.content:
+                yield chunk.content
+
     def generate_financial_summary(self, filing_text: str):
         """
         NEW: Generates a comprehensive financial summary from a 10-K filing.

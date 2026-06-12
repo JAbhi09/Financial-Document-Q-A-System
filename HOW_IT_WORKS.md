@@ -10,7 +10,7 @@ Every publicly traded US company must file a **10-K** (annual report) with the S
 
 The problem: **10-K filings are enormous** (100–400 pages), written in dense legal and financial language, and buried in the SEC's EDGAR database. Reading one manually takes a financial analyst days. Reading five to compare companies takes weeks.
 
-This project lets you ask plain English questions about any US-listed company's 10-K and get cited, accurate answers in seconds — plus automated fraud detection signals.
+This project lets you ask plain-English questions about any US-listed company's 10-K and get cited, accurate answers in seconds — plus automated fraud detection signals.
 
 ---
 
@@ -38,11 +38,11 @@ You type: "AAPL"
 │  Section extractor  │  → Splits filing into named sections
 │  Text splitter      │     (Item 1A: Risk Factors, Item 7: MD&A, etc.)
 │  Deduplicator       │  → Cuts each section into ~2000-char overlapping chunks
-│                     │  → Removes duplicate chunks via MD5 hash
+│                     │  → Removes duplicate chunks via normalized MD5 hash
 │  Sentence-          │  → Converts each chunk into a 384-dimension vector
 │  Transformers       │     (all-MiniLM-L6-v2 model)
 └────────┬────────────┘
-         │  ~227 vector-embedded Document objects
+         │  ~200–300 vector-embedded Document objects
          ▼
 ┌─────────────────────┐
 │  3. VECTOR STORE    │  rag/vector_store.py
@@ -63,7 +63,7 @@ You type: "What are the main risks Apple faces?"
 │  Query Enhancer     │  → Expands your query with financial synonyms
 │                     │     "risks" → adds "Item 1A Risk Factors"
 │  MMR Retriever      │  → Searches ChromaDB for the 5 most relevant chunks
-│                     │     (MMR = balances relevance AND diversity)
+│                     │     (MMR = balances relevance AND diversity, λ=0.3)
 │  Prompt Builder     │  → Wraps retrieved chunks + your question into a prompt
 │                     │     from analysis/prompts.py
 └────────┬────────────┘
@@ -78,14 +78,91 @@ You type: "What are the main risks Apple faces?"
 └────────┬────────────┘
          │
          ▼
-Answer + source sections displayed in the Streamlit UI
+Answer + source sections streamed live in the Streamlit UI
 ```
+
+---
+
+## Tab 2 — Year-over-Year Comparison
+
+Instead of asking one question, you can compare an entire company's current 10-K against last year's:
+
+```
+Click "Run Year-over-Year Comparison"
+          │
+          ▼
+┌─────────────────────────────────────────────────────┐
+│  Fetch current 10-K  (index 0 from EDGAR history)   │
+│  Fetch prior-year 10-K  (index 1)                   │
+│  Trim each to 80,000 chars for Gemini context        │
+└───────────────────────┬─────────────────────────────┘
+                        │
+            ┌───────────┴───────────┐
+            ▼                       ▼
+   Financial + Strategic       Risk Factor
+      Comparison               Analysis
+   (COMPARISON_PROMPT)    (RISK_ANALYSIS_PROMPT)
+            │                       │
+            ▼                       ▼
+   Revenue · Margin ·        New risks · Removed
+   EPS changes with          risks · Modified
+   % change calc             language · Severity
+```
+
+The comparison prompt includes structured headings (Revenue & Growth, Profitability, Risk Changes, Strategic Shifts, Operational Changes, Accounting Policy Changes) so the output is consistently organized.
+
+---
+
+## Tab 3 — Company Comparison
+
+Side-by-side analysis of two companies without any prior sidebar setup:
+
+```
+Enter: "AAPL" vs "MSFT"
+          │
+          ▼
+┌────────────────────────────────────────────────────────┐
+│  Auto-process each company if not cached               │
+│    process_filing(ticker) → embed → chroma_db_<TICKER> │
+│                                                         │
+│  Run Beneish M-Score for both  (SEC XBRL data)         │
+│  Run Linguistic Analysis for both                       │
+└───────────────────────┬────────────────────────────────┘
+                        │
+                        ▼
+┌────────────────────────────────────────────────────────┐
+│  Display panel                                          │
+│  ├── Beneish M-Score side by side (metric cards)       │
+│  ├── Linguistic indicators side by side (3 metrics)    │
+│  ├── Fraud Risk Summary table (M-Score · Risk · Flags) │
+│  └── AI Narrative Comparison (on demand)               │
+│          │                                              │
+│          ▼                                              │
+│  stream_compare_companies()                             │
+│    → retrieves top 10 chunks per company from ChromaDB  │
+│    → builds COMPANY_COMPARISON_PROMPT                   │
+│    → streams Gemini response token by token             │
+│    → post-processes output to strip rendering artifacts │
+└────────────────────────────────────────────────────────┘
+```
+
+### Output Rendering Cleanup
+
+Gemini's markdown output occasionally includes formatting that Streamlit misinterprets — bold markers wrapped around dollar amounts render as LaTeX math, and backtick-wrapped numbers render as monospace code. The `_clean_latex_artifacts()` function in `ui/app.py` strips these before display:
+
+```python
+text = re.sub(r'\*\*(\$[\d,\.]+)', r'\1', text)          # **$414 → $414
+text = re.sub(r'([\d,\.]+\s*(?:million|billion|trillion))\*\*', r'\1', text)
+text = re.sub(r'`([^`]+)`', r'\1', text)                  # `any phrase` → any phrase
+```
+
+The `COMPANY_COMPARISON_PROMPT` also includes explicit formatting rules to prevent these patterns at the source.
 
 ---
 
 ## Fraud Detection — How It Works
 
-When you click **"Analyze Filing"**, three independent fraud checks run in parallel:
+When you click **"Analyze Filing"**, three independent fraud checks run:
 
 ### Check 1 — Beneish M-Score (Earnings Manipulation)
 ```
@@ -116,6 +193,8 @@ Financial tables  → actual numbers fetched
 ```
 Catches cases where management's narrative contradicts the actual reported numbers.
 
+The discrepancy checker is tuned to avoid false positives: it requires explicit units in dollar extractions, filters out operating cash flow sentences from net income matching, and normalizes dollar values before comparison.
+
 ---
 
 ## Project Structure — Annotated
@@ -125,19 +204,22 @@ Int_fin_doc/
 │
 ├── ui/
 │   └── app.py                  ← START HERE. The Streamlit web app.
-│                                 Everything the user sees and clicks.
+│                                 Three tabs: Q&A, Compare Years, Compare Companies.
 │
 ├── analysis/
 │   ├── gemini_engine.py         ← The "brain". Manages all Gemini API calls,
-│   │                              query enhancement, RAG chain assembly.
+│   │                              query enhancement, RAG chain assembly,
+│   │                              streaming, and company comparison.
 │   └── prompts.py               ← The "scripts". Carefully engineered prompts
-│                                  for Q&A, comparison, risk analysis, etc.
+│                                  for Q&A, YoY comparison, risk analysis,
+│                                  company comparison, and metric extraction.
 │
 ├── rag/
 │   ├── ingestion.py             ← Downloads + parses 10-K filings,
-│   │                              splits into chunks, enriches metadata.
+│   │                              splits into chunks, enriches metadata,
+│   │                              deduplicates via normalized MD5 hash.
 │   └── vector_store.py          ← Manages ChromaDB — saving, loading,
-│                                  and searching the vector database.
+│                                  and MMR searching the vector database.
 │
 ├── compliance/
 │   ├── beneish.py               ← Beneish M-Score calculator.
@@ -201,14 +283,15 @@ Int_fin_doc/
 ---
 
 ### Use Case 2 — Competitive Analysis (Business Analyst / MBA Student)
-**Scenario:** You're writing a competitive analysis comparing Netflix vs. Disney's streaming strategies.
+**Scenario:** You're writing a competitive analysis comparing Apple vs. Microsoft.
 
 **What you do:**
-1. Analyze `NFLX` → ask: *"What is Netflix's content investment strategy for 2024?"*
-2. Analyze `DIS` → ask: *"How does Disney describe its direct-to-consumer priorities?"*
-3. Compare linguistic patterns — which company uses more hedging about streaming profitability?
+1. Go to the **Compare Companies** tab
+2. Enter `AAPL` and `MSFT`
+3. View the side-by-side M-Score, linguistic indicators, and fraud risk table
+4. Click **Generate AI Comparison** for a narrative analysis of revenue, margins, risks, and strategy
 
-**Value:** Gets you cited quotes directly from official filings, not secondhand news articles.
+**Value:** Gets cited figures directly from official filings with quantitative fraud signals alongside the narrative.
 
 ---
 
@@ -224,16 +307,15 @@ Int_fin_doc/
 
 ---
 
-### Use Case 4 — Portfolio Risk Monitoring (Finance Professional)
-**Scenario:** You manage a portfolio of 10 stocks and want a quarterly risk review of each company's latest 10-K disclosures.
+### Use Case 4 — Year-over-Year Risk Monitoring
+**Scenario:** You want to see which new risks appeared in a company's latest 10-K that weren't in the prior year.
 
 **What you do:**
-1. Process all 10 tickers one by one
-2. Ask each one: *"What new risk factors appeared this year that weren't in last year's filing?"*
-3. Ask: *"Did the company change its revenue recognition policy?"*
-4. Export the compliance reports for your records
+1. Analyze the company via the sidebar
+2. Go to the **Compare Years** tab → select "Risk Factor Analysis"
+3. Get a structured breakdown of NEW, REMOVED, and MODIFIED risks with severity ratings
 
-**Value:** Systematic risk review that would otherwise require a team of analysts.
+**Value:** Instant risk delta — no need to manually diff two 400-page documents.
 
 ---
 
@@ -255,6 +337,8 @@ Int_fin_doc/
 | Load a new company (download + embed) | 3–7 minutes | 5–10 seconds |
 | Answer a Q&A question | 5–15 seconds | 5–15 seconds |
 | Run full compliance report | 30–60 seconds | 30–60 seconds |
+| Year-over-year comparison | 1–3 minutes | 1–3 minutes |
+| Company comparison (AI narrative) | 30–90 seconds | instant (cached) |
 | Disk space per company | 50–200 MB | (already used) |
 
 Caching is per-company. Once AAPL is processed, it loads instantly every time. The vectors are saved in `chroma_db_AAPL/` locally.
