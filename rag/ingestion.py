@@ -101,6 +101,7 @@
 
 import os
 import hashlib
+import difflib
 from typing import List
 from edgar import Company, set_identity
 from langchain_core.documents import Document
@@ -232,17 +233,31 @@ def process_filing(ticker: str) -> List[Document]:
         
         # ✅ Deduplicate and enrich metadata
         for i, chunk in enumerate(chunks):
-            # ✅ Create hash of full content for accurate deduplication
-            content_hash = hashlib.md5(chunk.page_content.encode('utf-8')).hexdigest()
-            
-            # ✅ Skip if we've seen this exact content before
+            # Normalize before hashing to catch near-duplicates differing only in whitespace/case
+            normalized = chunk.page_content.strip().lower()
+            content_hash = hashlib.md5(normalized.encode('utf-8')).hexdigest()
+
+            # Skip exact duplicates (after normalization)
             if content_hash in seen_hashes:
-                prev_section = seen_hashes[content_hash]
+                prev_section, _ = seen_hashes[content_hash]
                 print(f"  ⚠️  Skipping duplicate chunk (already in {prev_section})")
                 duplicate_count += 1
                 continue
-            
-            seen_hashes[content_hash] = section_name
+
+            # Secondary check: same section + >90% content overlap catches slightly reworded dupes
+            is_near_dup = False
+            for prev_sec, prev_norm in seen_hashes.values():
+                if prev_sec == section_name:
+                    ratio = difflib.SequenceMatcher(None, normalized, prev_norm).ratio()
+                    if ratio > 0.9:
+                        print(f"  ⚠️  Skipping near-duplicate chunk (similarity={ratio:.2f}, already in {prev_sec})")
+                        duplicate_count += 1
+                        is_near_dup = True
+                        break
+            if is_near_dup:
+                continue
+
+            seen_hashes[content_hash] = (section_name, normalized)
             
             # ✅ Add section context to chunk content for better retrieval
             enhanced_content = f"Section: {section_name}\n\n{chunk.page_content}"

@@ -57,11 +57,11 @@ class GeminiAnalysisEngine:
         Uses LCEL (LangChain Expression Language) with query preprocessing.
         """
         retriever = vector_store.as_retriever(
-            search_type="mmr", 
+            search_type="mmr",
             search_kwargs={
-                "k": 5, 
+                "k": 5,
                 "fetch_k": 20,
-                "lambda_mult": 0.7 
+                "lambda_mult": 0.3
             }
         )
         
@@ -113,9 +113,9 @@ class GeminiAnalysisEngine:
         retriever = vector_store.as_retriever(
             search_type="mmr",
             search_kwargs={
-                "k": 3,  # Fewer docs for focused queries
-                "fetch_k": 10,
-                "lambda_mult": 0.5  # Higher relevance weight
+                "k": 3,
+                "fetch_k": 20,
+                "lambda_mult": 0.3
             }
         )
         

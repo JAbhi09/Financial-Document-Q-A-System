@@ -10,14 +10,15 @@ Context from SEC filing:
 Question: {question}
 
 Instructions:
-- Extract specific numbers, percentages, and facts directly from the text
+- Synthesize and summarize from ALL provided sources — you do not need an exact quoted statement; infer and connect related information across chunks
+- Extract specific numbers, percentages, and facts where present; otherwise summarize the relevant content
 - When you see financial tables, carefully identify the correct rows and columns
 - For revenue questions: look for "Net sales", "Revenues", "Total revenues"
 - For profit questions: look for "Gross profit", "Operating income", "Net income"
 - Present numbers with proper formatting: Use "$XXX billion" or "$XXX million" (not backticks)
 - Organize multi-part answers with bullet points only when listing 3+ distinct items
 - Cite sources as [Source N] for each major claim
-- If the exact information isn't in the context, say "Not found in provided sections"
+- Only say "Not found in provided sections" if the context contains absolutely no relevant information about the question
 - Do NOT use phrases like "Based on the provided documents" or "According to the excerpts"
 - Be direct and concise
 
@@ -221,7 +222,7 @@ Instructions:
 - Include the fiscal year
 - Format: "Metric Name: $XXX million (FY2025)" or "XX.X% (FY2025)"
 - If comparing periods, show both numbers and calculate the change
-- If not found, respond: "Metric not found in provided text"
+- If the metric is genuinely absent from the text, respond: "Metric not found in provided text"
 - Be direct - no preamble
 
 Answer:
