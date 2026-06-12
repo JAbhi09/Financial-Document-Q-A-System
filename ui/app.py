@@ -119,11 +119,16 @@ import sys
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from rag.ingestion import process_filing, fetch_latest_10k_filing
+from rag.ingestion import process_filing, fetch_latest_10k_filing, fetch_10k_text
 from rag.vector_store import add_documents_to_store, get_vector_store
 from analysis.gemini_engine import GeminiAnalysisEngine
 from compliance.linguistics import analyze_linguistic_fraud_indicators
-from compliance.beneish import calculate_beneish_m_score_with_ticker  
+from compliance.beneish import calculate_beneish_m_score_with_ticker
+from compliance.discrepancy import (
+    detect_discrepancies,
+    extract_claims_from_text,
+    build_financials_for_discrepancy,
+)
 from edgar import Company
 
 st.set_page_config(page_title="Financial Compliance AI", layout="wide", page_icon="📊")
@@ -253,75 +258,115 @@ if st.sidebar.button("🔍 Analyze Filing", use_container_width=True):
                     st.subheader("📊 Earnings Manipulation (Beneish M-Score)")
                     with st.spinner("Fetching financial data from SEC..."):
                         try:
-                            result = calculate_beneish_m_score_with_ticker(ticker, current_year=2024)
-                            
-                            m_score = result.get('m_score', -999)
-                            data_source = result.get('data_source', 'unknown')
-                            risk_level = result.get('risk_level', 'UNKNOWN')
-                            
-                            # Show data source indicator
-                            if data_source == 'real':
-                                st.success("✓ Using real SEC financial data")
-                            elif data_source == 'demo':
-                                st.warning("⚠️ Using demo data - real data unavailable")
-                            else:
-                                st.info("ℹ️ Data source: " + data_source)
-                            
-                            # Display M-Score with color coding
-                            if m_score == -999 or m_score is None:
-                                st.error("❌ M-Score calculation failed")
-                                if 'error' in result:
-                                    st.caption(f"Error: {result['error']}")
-                            else:
-                                if m_score > -1.78:
-                                    score_color = "🔴"
-                                    alert_type = "error"
-                                elif m_score > -2.22:
-                                    score_color = "🟡"
-                                    alert_type = "warning"
-                                else:
-                                    score_color = "🟢"
-                                    alert_type = "success"
-                                
-                                st.metric(
-                                    f"{score_color} M-Score", 
-                                    f"{m_score:.3f}",
-                                    delta=f"Risk: {risk_level}"
+                            beneish_result = calculate_beneish_m_score_with_ticker(ticker, current_year=2024)
+                            st.session_state['beneish_result'] = beneish_result
+
+                            m_score    = beneish_result.get('m_score')
+                            data_source = beneish_result.get('data_source', 'unknown')
+                            risk_level  = beneish_result.get('risk_level', 'UNKNOWN')
+
+                            if data_source == 'unavailable':
+                                st.warning("SEC XBRL data unavailable for this company")
+                                st.caption(beneish_result.get('message', ''))
+                                st.info(
+                                    "M-Score requires two consecutive years of XBRL financial data "
+                                    "from SEC EDGAR. Try a larger company or a different year."
                                 )
-                                
-                                # Interpretation
-                                if result.get('manipulation_likely'):
-                                    st.error("🚨 M-Score indicates potential earnings manipulation (>-2.22)")
+                            else:
+                                st.success("✓ Using real SEC financial data")
+
+                                if m_score is None:
+                                    st.error("M-Score calculation failed")
+                                    if 'error' in beneish_result:
+                                        st.caption(f"Error: {beneish_result['error']}")
                                 else:
-                                    st.success("✓ M-Score within normal range (<-2.22)")
-                            
-                            # Component breakdown
-                            with st.expander("📋 View M-Score Components"):
-                                components = result.get('components', {})
-                                interpretations = result.get('interpretation', {})
-                                
-                                if components:
-                                    st.markdown("**Component Breakdown:**")
-                                    for key, value in components.items():
-                                        interp = interpretations.get(key, '')
-                                        status = "⚠️" if any(word in interp for word in ["Inflating", "Deteriorating", "Aggressive", "Lower quality"]) else "✓"
-                                        st.write(f"{status} **{key.upper()}**: {value} - {interp}")
-                                    
-                                    st.markdown("---")
-                                    st.markdown("""
-                                    **M-Score Interpretation Guide:**
-                                    - **< -2.50**: Very low manipulation risk
-                                    - **-2.50 to -2.22**: Low risk (normal range)
-                                    - **-2.22 to -1.78**: Moderate risk ⚠️
-                                    - **-1.78 to 0**: High risk 🔴
-                                    - **> 0**: Very high risk 🚨
-                                    """)
-                                else:
-                                    st.info("Component details not available")
-                                
+                                    score_color = "🔴" if m_score > -1.78 else ("🟡" if m_score > -2.22 else "🟢")
+                                    st.metric(
+                                        f"{score_color} M-Score",
+                                        f"{m_score:.3f}",
+                                        delta=f"Risk: {risk_level}"
+                                    )
+                                    if beneish_result.get('manipulation_likely'):
+                                        st.error("🚨 M-Score indicates potential earnings manipulation (> -2.22)")
+                                    else:
+                                        st.success("✓ M-Score within normal range (< -2.22)")
+
+                                with st.expander("📋 View M-Score Components"):
+                                    components    = beneish_result.get('components', {})
+                                    interpretations = beneish_result.get('interpretation', {})
+                                    if components:
+                                        for key, value in components.items():
+                                            interp = interpretations.get(key, '')
+                                            flag = "⚠️" if any(w in interp for w in ["Inflating", "Deteriorating", "Aggressive", "Lower quality"]) else "✓"
+                                            st.write(f"{flag} **{key.upper()}**: {value} — {interp}")
+                                        st.markdown("---")
+                                        st.markdown("""
+**M-Score Guide:** < -2.50 very low · -2.50→-2.22 low · -2.22→-1.78 moderate ⚠️ · > -1.78 high 🔴
+                                        """)
+                                    else:
+                                        st.info("Component details not available")
+
                         except Exception as e:
                             st.error(f"M-Score calculation error: {str(e)}")
-                            st.info("This may occur if SEC financial data is unavailable for this company.")
+
+                # === DISCREPANCY DETECTION (full width, below the two columns) ===
+                st.markdown("---")
+                st.subheader("🔍 MD&A Narrative vs. Financial Data")
+                with st.spinner("Checking for narrative discrepancies..."):
+                    try:
+                        mda_docs = [
+                            d for d in docs
+                            if "Item 7" in d.metadata.get("section", "")
+                        ]
+                        mda_text = " ".join(d.page_content for d in mda_docs)
+
+                        beneish_result = st.session_state.get('beneish_result', {})
+                        raw_data = beneish_result.get('raw_data')
+
+                        if not mda_text.strip():
+                            st.info("No MD&A text found in the processed chunks.")
+                        elif raw_data is None:
+                            st.warning(
+                                "Discrepancy check skipped — requires real SEC financial data "
+                                "(Beneish M-Score data unavailable for this company)."
+                            )
+                        else:
+                            claims     = extract_claims_from_text(mda_text)
+                            financials = build_financials_for_discrepancy(
+                                raw_data['current'], raw_data['prior']
+                            )
+                            discrepancies = detect_discrepancies(claims, financials)
+
+                            if not claims:
+                                st.info("No directional financial claims detected in MD&A text.")
+                            elif not discrepancies:
+                                st.success(f"✓ No discrepancies found across {len(claims)} MD&A claim(s)")
+                                with st.expander("View extracted claims"):
+                                    for c in claims:
+                                        st.write(f"**{c['metric']}** — {c['direction']} | {c['sentence']}")
+                            else:
+                                high = [d for d in discrepancies if d['severity'] == 'HIGH']
+                                med  = [d for d in discrepancies if d['severity'] == 'MEDIUM']
+                                if high:
+                                    st.error(f"🚨 {len(high)} HIGH-severity discrepancy(ies) detected")
+                                if med:
+                                    st.warning(f"⚠️ {len(med)} MEDIUM-severity discrepancy(ies) detected")
+
+                                for disc in discrepancies:
+                                    icon = "🚨" if disc['severity'] == 'HIGH' else "⚠️"
+                                    with st.expander(f"{icon} {disc['type']} — {disc['claim']['metric']}"):
+                                        st.markdown(f"**Description:** {disc['description']}")
+                                        st.markdown(f"**MD&A claim:** _{disc['claim']['sentence']}_")
+                                        actual = disc['actual']
+                                        st.markdown(
+                                            f"**Reported data:** value = {actual.get('value', 'N/A'):,.0f}, "
+                                            f"change = {actual.get('change', 'N/A'):+,.0f}"
+                                            if isinstance(actual.get('value'), (int, float))
+                                            else f"**Reported data:** {actual}"
+                                        )
+
+                    except Exception as e:
+                        st.error(f"Discrepancy check error: {str(e)}")
 
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
@@ -329,152 +374,201 @@ if st.sidebar.button("🔍 Analyze Filing", use_container_width=True):
                 with st.expander("View error details"):
                     st.code(traceback.format_exc())
 
-# === Q&A SECTION ===
+# === TABS: Q&A + COMPARE YEARS ===
 st.divider()
-st.header("💬 Document Q&A")
 
 if 'vector_store_path' in st.session_state:
     ticker_info = st.session_state.get('processed_ticker', 'Unknown')
-    docs_count = st.session_state.get('docs_count', 0)
-    
-    # ✅ Show current analysis status
+    docs_count  = st.session_state.get('docs_count', 0)
+
     col1, col2 = st.columns([3, 1])
     with col1:
         st.info(f"📄 Currently analyzing: **{ticker_info}** 10-K filing ({docs_count} chunks indexed)")
     with col2:
         if st.button("🔄 Clear Analysis", use_container_width=True):
-            for key in ['vector_store_path', 'processed_ticker', 'docs_count']:
-                if key in st.session_state:
-                    del st.session_state[key]
+            for key in ['vector_store_path', 'processed_ticker', 'docs_count', 'beneish_result']:
+                st.session_state.pop(key, None)
             st.rerun()
-    
-    # ✅ Query input with example questions
-    query = st.text_input(
-        "Ask a question about the filing:", 
-        placeholder="e.g., What was the total revenue in fiscal 2024?"
-    )
-    
-    # ✅ Example questions
-    with st.expander("💡 Example Questions"):
-        example_col1, example_col2 = st.columns(2)
-        
-        with example_col1:
-            st.markdown("**Financial Metrics:**")
-            st.markdown("- What was the total revenue in fiscal 2024?")
-            st.markdown("- What is the net income?")
-            st.markdown("- How much cash does the company have?")
-            st.markdown("- What are the capital expenditures?")
-        
-        with example_col2:
-            st.markdown("**Strategic & Risk:**")
-            st.markdown("- What are the primary risk factors?")
-            st.markdown("- What is the company's e-commerce strategy?")
-            st.markdown("- What are the biggest competitive threats?")
-            st.markdown("- How is climate change affecting operations?")
-    
-    if query:
-        with st.spinner("Generating answer..."):
+
+    tab_qa, tab_compare = st.tabs(["💬 Document Q&A", "📅 Compare Years"])
+
+    # ── TAB 1: Q&A (streaming) ──────────────────────────────────────────────
+    with tab_qa:
+        query = st.text_input(
+            "Ask a question about the filing:",
+            placeholder="e.g., What was the total revenue in fiscal 2024?"
+        )
+
+        with st.expander("💡 Example Questions"):
+            ec1, ec2 = st.columns(2)
+            with ec1:
+                st.markdown("**Financial Metrics:**")
+                st.markdown("- What was the total revenue in fiscal 2024?")
+                st.markdown("- What is the net income?")
+                st.markdown("- How much cash does the company have?")
+                st.markdown("- What are the capital expenditures?")
+            with ec2:
+                st.markdown("**Strategic & Risk:**")
+                st.markdown("- What are the primary risk factors?")
+                st.markdown("- What is the company's e-commerce strategy?")
+                st.markdown("- What are the biggest competitive threats?")
+                st.markdown("- How is climate change affecting operations?")
+
+        if query:
             try:
-                engine = GeminiAnalysisEngine()
+                engine       = GeminiAnalysisEngine()
                 vector_store = get_vector_store(st.session_state['vector_store_path'])
-                
-                # ✅ Choose appropriate chain based on query type
-                if is_metric_query(query):
+
+                use_metric = is_metric_query(query)
+                if use_metric:
                     st.caption("🎯 Using focused metric extraction...")
-                    qa_chain = engine.get_metric_extraction_chain(vector_store)
+                    raw_stream = engine.stream_metric_qa(query, vector_store)
                 else:
                     st.caption("🔍 Using comprehensive analysis...")
-                    qa_chain = engine.get_qa_chain(vector_store)
-                
-                response = qa_chain.invoke({"input": query})
-                
-                # ✅ Display answer with better formatting
+                    raw_stream = engine.stream_qa(query, vector_store)
+
+                context_docs: list = []
+
+                def token_stream():
+                    for chunk_type, data in raw_stream:
+                        if chunk_type == "docs":
+                            context_docs.extend(data)
+                        else:
+                            yield data
+
                 st.markdown("### 💡 Answer")
-                answer_text = response["answer"]
-                
-                # Clean up answer formatting
-                if answer_text.startswith("```") and answer_text.endswith("```"):
-                    answer_text = answer_text.strip("`").strip()
-                
-                st.markdown(answer_text)
-                
-                # ✅ Show sources with better presentation
+                st.write_stream(token_stream())
+
                 with st.expander("📚 View Source Documents", expanded=False):
-                    context_docs = response.get("context", [])
                     if context_docs:
-                        # Check for diversity
-                        unique_sections = set(doc.metadata.get('section', 'N/A') for doc in context_docs)
-                        st.caption(f"Retrieved {len(context_docs)} sources from {len(unique_sections)} sections")
-                        
+                        unique_sections = {d.metadata.get('section', 'N/A') for d in context_docs}
+                        st.caption(f"Retrieved {len(context_docs)} sources from {len(unique_sections)} section(s)")
                         for i, doc in enumerate(context_docs, 1):
-                            with st.container():
-                                col1, col2 = st.columns([3, 1])
-                                with col1:
-                                    st.markdown(f"**Source {i}** - Section: {doc.metadata.get('section', 'N/A')}")
-                                with col2:
-                                    filing_date = doc.metadata.get('filing_date', 'N/A')
-                                    st.caption(f"📅 {filing_date}")
-                                
-                                # Show preview with expand option
-                                preview = doc.page_content[:500]
-                                if len(doc.page_content) > 500:
-                                    preview += "..."
-                                
-                                st.text(preview)
-                                
-                                if len(doc.page_content) > 500:
-                                    with st.expander(f"View full content (Source {i})"):
-                                        st.text(doc.page_content)
-                                
-                                if i < len(context_docs):
-                                    st.divider()
+                            c1, c2 = st.columns([3, 1])
+                            with c1:
+                                st.markdown(f"**Source {i}** — {doc.metadata.get('section', 'N/A')}")
+                            with c2:
+                                st.caption(f"📅 {doc.metadata.get('filing_date', 'N/A')}")
+                            preview = doc.page_content[:500]
+                            st.text(preview + ("..." if len(doc.page_content) > 500 else ""))
+                            if len(doc.page_content) > 500:
+                                with st.expander(f"View full content (Source {i})"):
+                                    st.text(doc.page_content)
+                            if i < len(context_docs):
+                                st.divider()
                     else:
                         st.info("No source documents available")
-                        
+
             except Exception as e:
                 st.error(f"Error generating answer: {str(e)}")
                 with st.expander("View error details"):
                     import traceback
                     st.code(traceback.format_exc())
+
+    # ── TAB 2: COMPARE YEARS ────────────────────────────────────────────────
+    with tab_compare:
+        st.markdown(
+            "Compare two consecutive 10-K filings to surface financial changes, "
+            "new/removed risks, and strategic shifts."
+        )
+        st.info(
+            "This fetches **two full filings** from SEC EDGAR and sends them to Gemini. "
+            "Expect 1–3 minutes for the download + analysis."
+        )
+
+        compare_type = st.radio(
+            "What to compare:",
+            ["Financial Changes + Strategic Shifts", "Risk Factor Analysis", "Both"],
+            horizontal=True,
+        )
+
+        if st.button("Run Year-over-Year Comparison", use_container_width=True):
+            ticker_to_compare = st.session_state.get('processed_ticker', ticker)
+
+            with st.spinner(f"Fetching latest 10-K for {ticker_to_compare}..."):
+                try:
+                    text_current, year_current = fetch_10k_text(ticker_to_compare, index=0)
+                except Exception as e:
+                    st.error(f"Could not fetch current filing: {e}")
+                    st.stop()
+
+            with st.spinner(f"Fetching prior-year 10-K for {ticker_to_compare}..."):
+                try:
+                    text_prior, year_prior = fetch_10k_text(ticker_to_compare, index=1)
+                except Exception as e:
+                    st.error(
+                        f"Could not fetch prior-year filing: {e}. "
+                        "The company may only have one 10-K on EDGAR."
+                    )
+                    st.stop()
+
+            st.success(f"Comparing FY{year_current} vs FY{year_prior} for {ticker_to_compare}")
+
+            # Truncate to avoid excessive token usage (~80k chars ≈ ~20k tokens each)
+            text_current_trimmed = text_current[:80_000]
+            text_prior_trimmed   = text_prior[:80_000]
+
+            try:
+                engine = GeminiAnalysisEngine()
+
+                if compare_type in ["Financial Changes + Strategic Shifts", "Both"]:
+                    with st.spinner("Generating financial comparison..."):
+                        comparison = engine.compare_filings(
+                            ticker_to_compare,
+                            year_current, text_current_trimmed,
+                            year_prior,   text_prior_trimmed,
+                        )
+                    st.markdown(f"## Financial & Strategic Comparison: FY{year_current} vs FY{year_prior}")
+                    st.markdown(comparison)
+                    st.divider()
+
+                if compare_type in ["Risk Factor Analysis", "Both"]:
+                    with st.spinner("Analyzing risk factor changes..."):
+                        risks = engine.analyze_risks(
+                            year_current, text_current_trimmed,
+                            year_prior,   text_prior_trimmed,
+                        )
+                    st.markdown(f"## Risk Factor Analysis: FY{year_current} vs FY{year_prior}")
+                    st.markdown(risks)
+
+            except Exception as e:
+                st.error(f"Comparison failed: {str(e)}")
+                with st.expander("View error details"):
+                    import traceback
+                    st.code(traceback.format_exc())
+
 else:
-    st.info("👆 Please analyze a filing first using the sidebar to enable Q&A.")
-    
-    # ✅ Better suggestions with descriptions
-    # Replace your suggested companies section with this:
+    st.info("👆 Please analyze a filing first using the sidebar to enable Q&A and comparison.")
+
     st.markdown("### 📈 Suggested Companies to Analyze:")
-
     col1, col2, col3 = st.columns(3)
-
     with col1:
         st.markdown("""
-        **Technology:**
-        - **AAPL** - Apple Inc.
-        - **MSFT** - Microsoft
-        - **GOOGL** - Alphabet/Google
-        - **META** - Meta/Facebook
-        - **NVDA** - NVIDIA
+**Technology:**
+- **AAPL** - Apple Inc.
+- **MSFT** - Microsoft
+- **GOOGL** - Alphabet/Google
+- **META** - Meta/Facebook
+- **NVDA** - NVIDIA
         """)
-
     with col2:
         st.markdown("""
-        **Retail & Consumer:**
-        - **WMT** - Walmart
-        - **AMZN** - Amazon
-        - **COST** - Costco
-        - **TGT** - Target
-        - **HD** - Home Depot
+**Retail & Consumer:**
+- **WMT** - Walmart
+- **AMZN** - Amazon
+- **COST** - Costco
+- **TGT** - Target
+- **HD** - Home Depot
         """)
-
     with col3:
         st.markdown("""
-        **Financial & Other:**
-        - **JPM** - JPMorgan Chase
-        - **BAC** - Bank of America
-        - **JNJ** - Johnson & Johnson
-        - **PFE** - Pfizer
-        - **XOM** - Exxon Mobil
+**Financial & Other:**
+- **JPM** - JPMorgan Chase
+- **BAC** - Bank of America
+- **JNJ** - Johnson & Johnson
+- **PFE** - Pfizer
+- **XOM** - Exxon Mobil
         """)
-
     st.info("💡 **Note:** Some companies like Nike (NKE) use different fiscal years and may file 10-K/A instead of standard 10-K.")
 # Footer with stats
 st.divider()

@@ -335,26 +335,45 @@ def calculate_beneish_m_score_with_ticker(ticker: str, current_year: int = 2024)
             current_year = current_year - 1
         
         if not current or not prior:
-            print("\n  ❌ Could not fetch sufficient real data, using demo values")
-            return calculate_beneish_m_score_demo()
-        
+            print(f"\n  Could not fetch sufficient real data for {ticker} ({current_year}/{current_year-1})")
+            return {
+                "data_source": "unavailable",
+                "m_score": None,
+                "risk_level": "UNKNOWN",
+                "ticker": ticker,
+                "manipulation_likely": None,
+                "components": {},
+                "message": (
+                    f"SEC XBRL data for {ticker} is unavailable or insufficient "
+                    f"for fiscal years {current_year} and {current_year - 1}. "
+                    "This can happen for smaller companies, recent IPOs, or companies "
+                    "with non-standard fiscal years."
+                ),
+            }
+
         print(f"\n  ✅ Successfully fetched real data!")
-        
-        # Calculate M-Score using existing function
-        # from compliance.beneish import calculate_beneish_m_score
+
         result = calculate_beneish_m_score(current, prior)
-        
         result['data_source'] = 'real'
         result['ticker'] = ticker
         result['year'] = current_year
-        
+        result['raw_data'] = {'current': current, 'prior': prior}
+
         return result
-        
+
     except Exception as e:
         print(f"\n  ❌ Error: {e}")
         import traceback
         traceback.print_exc()
-        return calculate_beneish_m_score_demo()
+        return {
+            "data_source": "unavailable",
+            "m_score": None,
+            "risk_level": "UNKNOWN",
+            "ticker": ticker,
+            "manipulation_likely": None,
+            "components": {},
+            "message": f"Error retrieving SEC data for {ticker}: {e}",
+        }
 
 def calculate_beneish_m_score_demo() -> dict:
     """Demo calculation with placeholder values"""

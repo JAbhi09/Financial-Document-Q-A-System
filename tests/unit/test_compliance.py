@@ -16,7 +16,12 @@ from compliance.beneish import (
     calculate_beneish_m_score_with_ticker,
     calculate_beneish_m_score_demo,
     get_financial_data_for_year,
-    safe_div
+    safe_div,
+)
+from compliance.discrepancy import (
+    extract_claims_from_text,
+    build_financials_for_discrepancy,
+    detect_discrepancies,
 )
 
 
@@ -497,19 +502,22 @@ class TestMScoreWithTicker:
     @pytest.mark.unit
     @patch('compliance.beneish.get_financial_data_for_year')
     @patch('compliance.beneish.Company')
-    def test_calculate_m_score_with_ticker_fallback_to_demo(self, mock_company, mock_get_data):
-        """Test M-Score falls back to demo when data unavailable."""
+    def test_calculate_m_score_with_ticker_returns_unavailable_when_no_data(self, mock_company, mock_get_data):
+        """When SEC data is absent, result must be data_source='unavailable' — never fake numbers."""
         mock_company_instance = MagicMock()
         mock_company_instance.name = "Test Company Inc."
         mock_company.return_value = mock_company_instance
-        
-        # Simulate no data available
+
         mock_get_data.return_value = None
-        
+
         result = calculate_beneish_m_score_with_ticker('TEST', 2024)
-        
+
         assert isinstance(result, dict)
-        assert result['data_source'] == 'demo'
+        assert result['data_source'] == 'unavailable', (
+            "Must not silently fall back to demo data — users must know the score is unavailable"
+        )
+        assert result['m_score'] is None, "m_score must be None, not a fabricated value"
+        assert 'message' in result, "A user-facing explanation must be present"
     
     @pytest.mark.unit
     @patch('compliance.beneish.get_financial_data_for_year')
@@ -568,6 +576,75 @@ def sample_financial_data():
             'operating_cash_flow': 1000
         }
     }
+
+
+class TestDiscrepancyDetection:
+    """Tests for the discrepancy checker and claim extractor."""
+
+    @pytest.mark.unit
+    def test_extract_claims_increase(self):
+        text = "Revenue increased 12% to $394 billion driven by strong iPhone sales."
+        claims = extract_claims_from_text(text)
+        assert any(c['metric'] == 'revenue' and c['direction'] == 'increase' for c in claims)
+
+    @pytest.mark.unit
+    def test_extract_claims_decrease(self):
+        # Avoid words from the increase pattern ("higher", "grew", etc.) in the test sentence
+        text = "Net income decreased in fiscal 2024 compared to the prior year."
+        claims = extract_claims_from_text(text)
+        assert any(c['metric'] == 'net_income' and c['direction'] == 'decrease' for c in claims)
+
+    @pytest.mark.unit
+    def test_extract_claims_empty_text(self):
+        assert extract_claims_from_text("") == []
+
+    @pytest.mark.unit
+    def test_extract_claims_no_financial_keywords(self):
+        text = "The weather was sunny and employees enjoyed the company picnic."
+        assert extract_claims_from_text(text) == []
+
+    @pytest.mark.unit
+    def test_extract_claims_deduplicates_per_metric(self):
+        text = (
+            "Revenue increased 10%. Total revenues also increased in all regions. "
+            "Revenue growth was strong across all segments."
+        )
+        claims = extract_claims_from_text(text)
+        revenue_claims = [c for c in claims if c['metric'] == 'revenue']
+        assert len(revenue_claims) == 1, "Each metric should appear at most once"
+
+    @pytest.mark.unit
+    def test_detect_directional_mismatch(self):
+        claims = [{'metric': 'revenue', 'direction': 'increase', 'value': None, 'sentence': 'Revenue increased.'}]
+        financials = {'revenue': {'value': 1000, 'change': -50}}  # actually decreased
+        discrepancies = detect_discrepancies(claims, financials)
+        assert len(discrepancies) == 1
+        assert discrepancies[0]['type'] == 'DIRECTIONAL_MISMATCH'
+        assert discrepancies[0]['severity'] == 'HIGH'
+
+    @pytest.mark.unit
+    def test_detect_no_discrepancy_when_consistent(self):
+        claims = [{'metric': 'revenue', 'direction': 'increase', 'value': None, 'sentence': 'Revenue increased.'}]
+        financials = {'revenue': {'value': 1100, 'change': 100}}  # genuinely increased
+        discrepancies = detect_discrepancies(claims, financials)
+        assert discrepancies == []
+
+    @pytest.mark.unit
+    def test_detect_magnitude_mismatch(self):
+        claims = [{'metric': 'revenue', 'direction': 'increase', 'value': 500, 'sentence': 'Revenue was 500.'}]
+        financials = {'revenue': {'value': 1000, 'change': 100}}  # 100% off
+        discrepancies = detect_discrepancies(claims, financials)
+        types = [d['type'] for d in discrepancies]
+        assert 'MAGNITUDE_MISMATCH' in types
+
+    @pytest.mark.unit
+    def test_build_financials_from_raw(self):
+        current = {'revenue': 1100, 'net_income': 200, 'cogs': 600, 'operating_cash_flow': 300}
+        prior   = {'revenue': 1000, 'net_income': 180, 'cogs': 550, 'operating_cash_flow': 280}
+        financials = build_financials_for_discrepancy(current, prior)
+        assert financials['revenue']['change'] == 100
+        assert financials['net_income']['change'] == 20
+        assert financials['gross_profit']['value'] == 500   # 1100 - 600
 
 
 if __name__ == "__main__":

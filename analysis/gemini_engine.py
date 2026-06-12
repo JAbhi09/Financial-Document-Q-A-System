@@ -190,6 +190,48 @@ class GeminiAnalysisEngine:
         response = self.llm.invoke(prompt)
         return response.content
 
+    def stream_qa(self, query: str, vector_store):
+        """
+        Stream a Q&A response token by token.
+
+        Yields:
+            ("docs",  list[Document])  — emitted once before streaming starts
+            ("token", str)             — one per text chunk from the LLM
+        """
+        enhanced_query = self.preprocess_query(query)
+        docs = vector_store.similarity_search(enhanced_query, k=5)
+        yield ("docs", docs)
+
+        context = "\n\n".join(
+            f"[Source {i}] (Section: {doc.metadata.get('section', 'N/A')})\n{doc.page_content}"
+            for i, doc in enumerate(docs)
+        )
+        messages = FINANCIAL_QA_PROMPT.format_messages(context=context, question=query)
+        for chunk in self.llm.stream(messages):
+            if chunk.content:
+                yield ("token", chunk.content)
+
+    def stream_metric_qa(self, query: str, vector_store):
+        """
+        Stream a focused metric-extraction response token by token.
+
+        Yields:
+            ("docs",  list[Document])
+            ("token", str)
+        """
+        enhanced_query = self.preprocess_query(query)
+        docs = vector_store.similarity_search(enhanced_query, k=3)
+        yield ("docs", docs)
+
+        context = "\n\n".join(
+            f"[Source {i}]\n{doc.page_content}"
+            for i, doc in enumerate(docs)
+        )
+        messages = METRIC_EXTRACTION_PROMPT.format_messages(context=context, question=query)
+        for chunk in self.llm.stream(messages):
+            if chunk.content:
+                yield ("token", chunk.content)
+
     def answer_with_web_context(self, query: str, vector_store, include_web: bool = False):
         """
         NEW: Answer questions with optional web search for current context.

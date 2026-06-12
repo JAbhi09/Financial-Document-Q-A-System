@@ -209,16 +209,19 @@ class TestEndToEndErrorHandling:
     @pytest.mark.integration
     @patch('compliance.beneish.Company')
     def test_invalid_ticker_handling(self, mock_company):
-        """Test handling of invalid ticker symbols."""
+        """When the ticker lookup raises, result must be data_source='unavailable', never fake data."""
         mock_company.side_effect = Exception("Ticker not found")
-        
+
         from compliance.beneish import calculate_beneish_m_score_with_ticker
-        
-        # Should fall back to demo
+
         result = calculate_beneish_m_score_with_ticker("INVALID_TICKER_XYZ", 2024)
-        
+
         assert result is not None
-        assert result['data_source'] == 'demo'
+        assert result['data_source'] == 'unavailable', (
+            "Must not silently fall back to demo data — users must know the score is unavailable"
+        )
+        assert result['m_score'] is None
+        assert 'message' in result
     
     @pytest.mark.integration
     def test_beneish_with_missing_data(self):

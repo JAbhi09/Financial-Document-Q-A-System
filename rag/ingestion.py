@@ -150,6 +150,48 @@ def extract_key_sections(filing) -> dict:
 
     return sections
 
+def fetch_10k_text(ticker: str, index: int = 0) -> tuple:
+    """
+    Fetch the full text of a specific 10-K filing by recency index.
+
+    Args:
+        ticker: Stock ticker symbol (e.g. "AAPL")
+        index:  0 = latest filing, 1 = prior year, 2 = two years ago, …
+
+    Returns:
+        (full_text: str, fiscal_year: str)
+
+    Raises:
+        ValueError if the filing or index is unavailable.
+    """
+    company = Company(ticker)
+    filings = company.get_filings(form="10-K")
+    if not filings:
+        raise ValueError(f"No 10-K filings found for {ticker}")
+
+    try:
+        filing_obj = filings[index].obj()
+    except (IndexError, TypeError, AttributeError):
+        raise ValueError(
+            f"Filing index {index} is not available for {ticker}. "
+            "The company may have fewer historical filings than requested."
+        )
+
+    fiscal_year = str(filing_obj.filing_date)[:4]
+    sections = extract_key_sections(filing_obj)
+
+    full_text = "\n\n".join(
+        f"=== {name} ===\n{content}"
+        for name, content in sections.items()
+        if content and len(content.strip()) > 100
+    )
+
+    if not full_text.strip():
+        raise ValueError(f"No extractable text in {ticker} filing at index {index}.")
+
+    return full_text, fiscal_year
+
+
 def process_filing(ticker: str) -> List[Document]:
     """
     Orchestrates fetching, extraction, and chunking of the 10-K.
