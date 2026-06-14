@@ -374,18 +374,3 @@ def calculate_beneish_m_score_with_ticker(ticker: str, current_year: int = 2024)
             "components": {},
             "message": f"Error retrieving SEC data for {ticker}: {e}",
         }
-
-def calculate_beneish_m_score_demo() -> dict:
-    """Demo calculation with placeholder values"""
-    return {
-        "m_score": -1.997,
-        "manipulation_likely": True,
-        "risk_level": "MODERATE",
-        "data_source": "demo",
-        "components": {
-            "dsri": 0.92, "gmi": 1.05, "aqi": 1.01, "sgi": 1.15,
-            "depi": 0.98, "sgai": 1.02, "lvgi": 1.03, "tata": 0.02
-        },
-        "note": "⚠️ Using demo data - real financial data unavailable for this company/year",
-        "interpretation": {}
-    }

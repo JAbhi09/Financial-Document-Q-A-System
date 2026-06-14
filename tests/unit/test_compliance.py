@@ -14,7 +14,6 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../.
 from compliance.beneish import (
     calculate_beneish_m_score,
     calculate_beneish_m_score_with_ticker,
-    calculate_beneish_m_score_demo,
     get_financial_data_for_year,
     safe_div,
 )
@@ -308,17 +307,6 @@ class TestBeneishMScore:
         # Either successful calculation with defaults or error
         assert 'm_score' in result or 'error' in result
     
-    @pytest.mark.unit
-    def test_calculate_m_score_demo(self):
-        """Test demo calculation function."""
-        result = calculate_beneish_m_score_demo()
-        
-        assert isinstance(result, dict)
-        assert 'm_score' in result
-        assert result['data_source'] == 'demo'
-        assert 'components' in result
-        assert 'note' in result
-
 
 class TestFinancialDataRetrieval:
     """Test financial data retrieval from SEC API."""
