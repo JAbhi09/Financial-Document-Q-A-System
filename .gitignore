@@ -132,6 +132,21 @@ intfinproject/
 
 # Debug and Test Files (root-level scratch scripts only, NOT tests/ subdirectory)
 /debug_*.py
+/test.py
 /test_*.py
 /repro_*.py
 /reproduce_*.py
+/reingest_*.py
+
+# Dev Notes and Personal Scratch Files
+Problem_solved.txt
+/netflix_facts.json
+
+# Documentation / Guide Files (not for repo)
+HOW_IT_WORKS.md
+PROJECT_PROGRESS.md
+DOCKER_GUIDE.md
+TESTING_GUIDE.md
+TESTING_IMPLEMENTATION_SUMMARY.md
+TESTING_QUICK_REFERENCE.md
+USER_GUIDE.md
